@@ -2,7 +2,7 @@
 import logging
 import time
 
-from modules import dualsense, udplistener
+from modules import carprofiles, dualsense, udplistener
 from modules.exit_detection import ProcessWatcher
 
 log = logging.getLogger("fhds")
@@ -12,9 +12,10 @@ def _max_abs(t, prefix):
     return max(abs(t[f"{prefix}_{wheel}"]) for wheel in ("fl", "fr", "rl", "rr"))
 
 
-def run(ds, listener, s, stop_event=None):
+def run(ds, listener, s, stop_event=None, car_profile=None, on_car_switch=None):
     OFF = dualsense.triggers.off()
     controller = dualsense.Controller(s)
+    car_mgr = carprofiles.CarProfileManager(s, forced=car_profile, on_switch=on_car_switch)
     prev = None
     last_pkt = time.monotonic()
     last_log = 0.0
@@ -57,6 +58,11 @@ def run(ds, listener, s, stop_event=None):
         except ValueError as e:
             log.warning("Bad packet from %s:%d (%d bytes): %s", addr[0], addr[1], len(pkt), e)
             continue
+
+        try:
+            car_mgr.on_packet(t)
+        except Exception:
+            log.exception("Car profile update failed")
 
         left, right = controller.update(t, s)
 

@@ -1,0 +1,6 @@
+{
+  "brake_max_force": 110,
+  "brake_baseline_force": 30,
+  "brake_curve": 4.0,
+  "throttle_max_force": 12
+}

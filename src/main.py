@@ -10,7 +10,7 @@ load_dotenv("dev.env")
 
 
 from modules import dualsense, udplistener, setup_logging, loop
-from modules import preferences
+from modules import carprofiles, preferences
 from modules.settings import Settings
 
 log = logging.getLogger("fhds")
@@ -34,7 +34,7 @@ def _excepthook(exc_type, exc, tb):
     log.critical("Unhandled exception", exc_info=(exc_type, exc, tb))
 
 
-def run(s: Settings) -> None:
+def run(s: Settings, profile: str | None = None) -> None:
     ds = dualsense.DualSense(
         startup_pulse_force=s.startup_pulse_force,
         enable_startup_pulse=s.enable_startup_pulse,
@@ -47,14 +47,14 @@ def run(s: Settings) -> None:
         with udplistener.UDPListener(s.udp_host, s.udp_port, s.udp_timeout) as listener:
             log.info("Listening on %s:%d | Ctrl+C to quit", s.udp_host, s.udp_port)
             log.info("  In game: HUD & Gameplay -> Data Out: ON, IP 127.0.0.1, Port %d", s.udp_port)
-            loop.run(ds, listener, s)
+            loop.run(ds, listener, s, car_profile=profile)
     finally:
         ds.close()
 
 
-def run_tui(s: Settings) -> None:
+def run_tui(s: Settings, profile: str | None = None) -> None:
     from modules.tui import TriggerTUI
-    TriggerTUI(s).run()
+    TriggerTUI(s, car_profile=profile).run()
 
 
 def _confirm(prompt: str) -> bool:
@@ -81,6 +81,8 @@ if __name__ == "__main__":
     p.add_argument("--port", type=int, default=None, help="UDP port")
     p.add_argument("--debug", action="store_true", help="Verbose per-packet logs")
     p.add_argument("--headless", action="store_true", help="Disable TUI, use console logs")
+    p.add_argument("--profile", choices=carprofiles.available_names(), default=None,
+                   help="Lock a car-class profile (disables auto-select by car class)")
     args = p.parse_args()
 
     settings = Settings()
@@ -102,6 +104,6 @@ if __name__ == "__main__":
 
     if args.headless:
         setup_logging(args.debug)
-        run(settings)
+        run(settings, profile=args.profile)
     else:
-        run_tui(settings)
+        run_tui(settings, profile=args.profile)

@@ -1,0 +1,6 @@
+{
+  "brake_max_force": 55,
+  "brake_baseline_force": 12,
+  "throttle_max_force": 4,
+  "abs_slip_ratio_threshold": 1.4
+}

@@ -47,6 +47,7 @@ class TriggerTUI(App):
 
     #topbar { dock: top; height: 1; background: $boost; }
     #profile { width: auto; height: 1; padding: 0 2; color: $accent; text-style: bold; }
+    #car-profile { width: auto; height: 1; padding: 0 2; color: $text-muted; }
     #status { width: 1fr; height: 1; padding: 0 2; text-align: center; }
     #version { width: auto; height: 1; padding: 0 2; text-align: right; color: $text-muted; }
     #version:hover { color: $accent; text-style: underline; }
@@ -77,9 +78,10 @@ class TriggerTUI(App):
     SPONSOR_URL = "https://github.com/sponsors/HamzaYslmn"
     CHANGELOG_URL = "https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python/releases/latest"
 
-    def __init__(self, settings):
+    def __init__(self, settings, car_profile=None):
         super().__init__()
         self.settings = settings
+        self._car_profile = car_profile
         set_language(settings.language)
         self._stop = threading.Event()
         self._thread = None
@@ -91,6 +93,7 @@ class TriggerTUI(App):
         yield Header(show_clock=True)
         with Horizontal(id="topbar"):
             yield Static("", id="profile")
+            yield Static("", id="car-profile")
             yield Static("", id="status")
             yield Static(f"v{_version() or '?'}", id="version")
         with TabbedContent(initial="tab-controls"):
@@ -127,6 +130,7 @@ class TriggerTUI(App):
 
         self.refresh_status()
         self.refresh_profile()
+        self._set_car_label(self._car_profile or "auto")
         self.set_interval(1.0, self.refresh_status)
         log.info("Starting controller and telemetry listener...")
         self.call_after_refresh(self._start_backend)
@@ -169,7 +173,9 @@ class TriggerTUI(App):
 
     def _run_loop(self):
         try:
-            loop.run(self._ds, self._listener, self.settings, stop_event=self._stop)
+            loop.run(self._ds, self._listener, self.settings, stop_event=self._stop,
+                     car_profile=self._car_profile,
+                     on_car_switch=lambda name: self.call_from_thread(self._on_car_profile, name))
         except Exception:
             # An unexpected error here would otherwise kill the backend thread
             log.exception("Telemetry loop crashed")
@@ -202,6 +208,16 @@ class TriggerTUI(App):
         except Exception:
             active = t("(none)")
         self.query_one("#profile", Static).update(t("Profile: {name}").format(name=active))
+
+    def _set_car_label(self, name: str) -> None:
+        suffix = " (locked)" if self._car_profile else ""
+        self.query_one("#car-profile", Static).update(
+            t("Car: {name}").format(name=name) + suffix)
+
+    def _on_car_profile(self, name: str) -> None:
+        """Loop thread switched the car-class overlay — reflect it in the UI."""
+        self._set_car_label(name)
+        self.refresh_setting_widgets()
 
     def _logs_tab(self) -> LogsTab | None:
         try:

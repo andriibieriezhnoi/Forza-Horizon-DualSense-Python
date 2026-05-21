@@ -1,0 +1,6 @@
+{
+  "brake_max_force": 60,
+  "throttle_max_force": 6,
+  "throttle_baseline_force": 4,
+  "wheelspin_amp": 6
+}
