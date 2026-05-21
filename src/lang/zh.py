@@ -101,4 +101,10 @@ STRINGS = {
         "选择一种语言，然后重启应用以应用更改。",
     "Restart the app to apply the new language.":
         "重启应用以应用新语言。",
+
+    # --- lightbar ---
+    "Lightbar speedline": "灯条速度线",
+    "Lightbar": "灯条",
+    "Brightness": "亮度",
+    "ABS blink rate (Hz)": "ABS 闪烁频率 (Hz)",
 }

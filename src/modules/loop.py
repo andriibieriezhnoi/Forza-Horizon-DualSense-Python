@@ -38,8 +38,10 @@ def run(ds, listener, s, stop_event=None, car_profile=None, on_car_switch=None):
             if idle > 5.0 and not getattr(listener, "lost", False):
                 log.warning("No UDP packets yet — check Forza Horizon Data Out IP/port and Windows Firewall")
                 listener.lost = True
-            if idle > 1.0 and prev != (OFF, OFF):
-                ds.set(OFF, OFF); prev = (OFF, OFF)
+            if idle > 1.0:
+                rgb_idle = dualsense.lightbar.OFF if s.enable_lightbar else None
+                if prev != (OFF, OFF, rgb_idle):
+                    ds.set(OFF, OFF, rgb_idle); prev = (OFF, OFF, rgb_idle)
             # Fallback exit: telemetry was flowing, then stopped for too long
             # (game killed via Task Manager, or psutil missed the process).
             if pkt_count > 0 and idle > s.telemetry_lost_exit_s:
@@ -65,9 +67,10 @@ def run(ds, listener, s, stop_event=None, car_profile=None, on_car_switch=None):
             log.exception("Car profile update failed")
 
         left, right = controller.update(t, s)
+        rgb = dualsense.lightbar.compute(t, s) if s.enable_lightbar else None
 
-        if (left, right) != prev:
-            ds.set(left, right); prev = (left, right)
+        if (left, right, rgb) != prev:
+            ds.set(left, right, rgb); prev = (left, right, rgb)
 
         if now - last_log >= 1.0:
             last_log = now

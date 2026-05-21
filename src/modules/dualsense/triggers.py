@@ -72,6 +72,15 @@ def _amp_to_strength(amp_byte):
 def _max_slip(t, prefix, wheels=("fl", "fr", "rl", "rr")):
     return max(abs(t[f"{prefix}_{w}"]) for w in wheels)
 
+def abs_active(t, s):
+    """True when tyres are locking under braking (where ABS would intervene).
+    No enable_abs gate, so the lightbar warning can be driven independently of
+    the trigger rumble toggle that abs_pulse() checks."""
+    if t["brake"] < s.abs_brake_threshold or t["speed"] < s.abs_min_speed_kmh:
+        return False
+    return (_max_slip(t, "tire_slip_ratio") >= s.abs_slip_ratio_threshold
+            or _max_slip(t, "tire_combined_slip") >= s.abs_combined_slip_threshold)
+
 def _ramp(value, deadzone, baseline, max_force, curve, ceiling):
     """deadzone..ceiling -> baseline..max_force, curve = exponent."""
     if value < deadzone:
@@ -164,12 +173,7 @@ class TriggerAnimations:
         return vibration(100, s.wheelspin_amp)  # tarmac
 
     def abs_pulse(self, t, s):
-        if not s.enable_abs:
-            return None
-        if t["brake"] < s.abs_brake_threshold or t["speed"] < s.abs_min_speed_kmh:
-            return None
-        if (_max_slip(t, "tire_slip_ratio") < s.abs_slip_ratio_threshold
-                and _max_slip(t, "tire_combined_slip") < s.abs_combined_slip_threshold):
+        if not s.enable_abs or not abs_active(t, s):
             return None
         return vibration(s.abs_freq, s.abs_amp)
 

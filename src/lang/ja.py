@@ -101,4 +101,10 @@ STRINGS = {
         "言語を選択し、アプリを再起動して適用してください。",
     "Restart the app to apply the new language.":
         "新しい言語を適用するにはアプリを再起動してください。",
+
+    # --- lightbar ---
+    "Lightbar speedline": "ライトバー スピードライン",
+    "Lightbar": "ライトバー",
+    "Brightness": "明るさ",
+    "ABS blink rate (Hz)": "ABS 点滅レート (Hz)",
 }

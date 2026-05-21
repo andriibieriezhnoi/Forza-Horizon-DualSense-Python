@@ -22,11 +22,14 @@ PRODUCT_IDS = (0x0CE6, 0x0DF2)  # DualSense, DualSense Edge
 
 # valid_flag0: 0x01 (R motor), 0x02 (L motor), 0x04 (R trigger), 0x08 (L trigger).
 TRIG_FLAGS = 0x04 | 0x08
+# valid_flag1 bit 2: enable the RGB lightbar bytes. Independent of the rumble
+# bits in valid_flag0, so claiming the lightbar never disturbs Steam's rumble.
+LIGHTBAR_FLAG = 0x04
 
 # MARK: Layout maps — byte offsets per transport
-# vf1 = valid_flag1, psav = power_save_control
-USB = {"rid": 0x02, "flags": 1, "vf1": 2, "psav": 10, "r": 11, "l": 22, "size": 64, "bt": False}
-BT  = {"rid": 0x31, "flags": 2, "vf1": 3, "psav": 11, "r": 12, "l": 23, "size": 78, "bt": True}
+# vf1 = valid_flag1, psav = power_save_control, rgb = lightbar red (green=+1, blue=+2)
+USB = {"rid": 0x02, "flags": 1, "vf1": 2, "psav": 10, "r": 11, "l": 22, "rgb": 45, "size": 64, "bt": False}
+BT  = {"rid": 0x31, "flags": 2, "vf1": 3, "psav": 11, "r": 12, "l": 23, "rgb": 46, "size": 78, "bt": True}
 
 # Precomputed CRC of the BT report-header byte 0xA2. zlib.crc32(data, value)
 # resumes from `value`, so this lets us CRC straight off the buffer without
@@ -181,6 +184,7 @@ class DualSense:
         self.lay = USB
         self._lock = threading.Lock()
         self._left = self._right = off()
+        self._rgb = None               # None = leave the lightbar to the system
         self._dirty = False
         self._running = False
         self._thread = None
@@ -240,9 +244,9 @@ class DualSense:
             self._thread.join(timeout=2.0)
         self._disconnect()
 
-    def set(self, left, right):
+    def set(self, left, right, rgb=None):
         with self._lock:
-            self._left, self._right, self._dirty = left, right, True
+            self._left, self._right, self._rgb, self._dirty = left, right, rgb, True
         self._wake.set()
 
     def set_reconnect_enabled(self, enabled: bool) -> None:
@@ -426,11 +430,11 @@ class DualSense:
 
             # --- Write the latest queued frame, if any ---
             with self._lock:
-                dirty, left, right = self._dirty, self._left, self._right
+                dirty, left, right, rgb = self._dirty, self._left, self._right, self._rgb
                 self._dirty = False
             if dirty:
                 try:
-                    n = self.dev.write(self._build(left, right))
+                    n = self.dev.write(self._build(left, right, rgb))
                 except Exception as e:
                     if not persistent:
                         self._disconnect(f"write failed: {e}")
@@ -457,7 +461,7 @@ class DualSense:
             crc = zlib.crc32(memoryview(buf)[:74], _BT_CRC_SEED)
             struct.pack_into("<I", buf, 74, crc)
 
-    def _build(self, left, right):
+    def _build(self, left, right, rgb=None):
         L = self.lay
         buf = self._new_report()
         buf[L["flags"]] = TRIG_FLAGS
@@ -466,6 +470,10 @@ class DualSense:
             # params elements are already clamped to 0-255 by triggers.py;
             # bytearray slice-assignment accepts a tuple of ints directly.
             buf[pos + 1:pos + 1 + len(params)] = params[:10]
+        if rgb is not None:
+            buf[L["vf1"]] |= LIGHTBAR_FLAG     # claim the lightbar; rumble bits stay clear
+            o = L["rgb"]
+            buf[o], buf[o + 1], buf[o + 2] = rgb
         self._finalize_bt_crc(buf)
         return buf  # hidapi accepts bytearray — skip the bytes() copy.
 

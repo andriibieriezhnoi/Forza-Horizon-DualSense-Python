@@ -88,6 +88,14 @@ class Settings:
     gear_shift_amp: int = 255                 # raw 0-255 byte for mode 0x06 vibration amplitude
     gear_shift_duration_ms: float = 100.0     # one shot per shift
 
+    # RGB lightbar "speedline": green throttle, red brake, blue handbrake,
+    # blinking yellow on ABS. Rides the same HID frame as the triggers but only
+    # touches the lightbar bytes, never rumble. Brightness scales with pedal
+    # travel; ABS blinks at full. Priority ABS > handbrake > brake > throttle.
+    enable_lightbar: bool = True
+    lightbar_brightness: int = 255            # master scale 0-255
+    lightbar_abs_blink_hz: float = 6.0        # ABS warning blink rate (full cycles/sec)
+
     # =============================================================
     # System
     # =============================================================

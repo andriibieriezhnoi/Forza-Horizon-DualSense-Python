@@ -101,4 +101,10 @@ STRINGS = {
         "Bir dil seçin, ardından uygulamak için uygulamayı yeniden başlatın.",
     "Restart the app to apply the new language.":
         "Yeni dili uygulamak için uygulamayı yeniden başlatın.",
+
+    # --- lightbar ---
+    "Lightbar speedline": "Işık çubuğu hız çizgisi",
+    "Lightbar": "Işık çubuğu",
+    "Brightness": "Parlaklık",
+    "ABS blink rate (Hz)": "ABS yanıp sönme hızı (Hz)",
 }

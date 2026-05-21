@@ -57,6 +57,10 @@ SETTING_SECTIONS = [
         ("gear_shift_amp",         "Amplitude",      0, 255),
         ("gear_shift_duration_ms", "Duration (ms)",  0.0, 2000.0),
     ]),
+    ("Lightbar", [
+        ("lightbar_brightness",   "Brightness",          0, 255),
+        ("lightbar_abs_blink_hz", "ABS blink rate (Hz)", 1.0, 20.0),
+    ]),
 ]
 
 SYSTEM_SECTIONS = [

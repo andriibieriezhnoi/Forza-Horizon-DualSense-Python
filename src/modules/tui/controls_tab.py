@@ -14,6 +14,7 @@ log = logging.getLogger("fhds")
 TRIGGER_CONTROLS = [
     ("Shared effects", [
         ("enable_surface_rumble", "Surface rumble"),
+        ("enable_lightbar",       "Lightbar speedline"),
     ]),
     ("L2", [
         ("enable_gear_shift_brake",  "Shift thump"),
