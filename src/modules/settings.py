@@ -21,7 +21,7 @@ class Settings:
     # gravel/dirt/grass push it up, tarmac is ~0. Sits below the walls but above
     # resistance in both chains, so it replaces flat resistance while off-road.
     enable_surface_rumble: bool = True
-    surface_rumble_gain: float = 80.0         # 0..1 rumble * gain -> 0-255 vibration amplitude
+    surface_rumble_gain: float = 40.0         # 0..1 rumble * gain -> 0-255 vibration amplitude
     surface_rumble_freq: int = 25             # Hz; low = earthy
     surface_rumble_min: float = 0.1           # deadzone: ignore rumble below this
 
@@ -33,7 +33,7 @@ class Settings:
     enable_brake_resistance: bool = True
     brake_deadzone: int = 50
     brake_baseline_force: int = 20
-    brake_max_force: int = 80                 # rigid force at brake_wall_engage_at (peak of the curve before the wall)
+    brake_max_force: int = 55                 # rigid force at brake_wall_engage_at (peak of the curve before the wall)
     brake_curve: float = 5.0                  # parabolic: light through mid travel, sharply firm near the wall
     brake_wall_engage_at: int = 250           # accel byte to switch to firmware wall
     brake_wall_release_at: int = 200          # accel byte to release the wall back to rigid curve (hysteresis)
