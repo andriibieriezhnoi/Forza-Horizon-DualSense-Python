@@ -64,7 +64,7 @@ jobs:
         run: |
           mkdir -p release
           uvx zuv build src -o release/fhds.zuv.py \
-            --update-repo HamzaYslmn/Forza-Horizon-DualSense-Python
+            --update-repo "${{ github.repository }}"
           cp win_start.bat linux_start.sh release/
 
       - uses: softprops/action-gh-release@v2
