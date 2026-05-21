@@ -12,6 +12,9 @@ log = logging.getLogger("fhds")
 
 # Listed highest priority first, matching the Controller's effect precedence.
 TRIGGER_CONTROLS = [
+    ("Shared effects", [
+        ("enable_surface_rumble", "Surface rumble"),
+    ]),
     ("L2", [
         ("enable_gear_shift_brake",  "Shift thump"),
         ("enable_abs",               "ABS rumble"),

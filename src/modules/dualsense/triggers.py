@@ -189,6 +189,15 @@ class TriggerAnimations:
         return rigid(_ramp(t["accel"], s.accel_deadzone, s.throttle_baseline_force,
                            s.throttle_max_force, s.throttle_curve, s.throttle_wall_engage_at))
 
+    def surface_rumble(self, t, s):
+        # Ambient off-road texture on both triggers; replaces flat resistance.
+        if not s.enable_surface_rumble:
+            return None
+        rumble = _max_slip(t, "surface_rumble")
+        if rumble < s.surface_rumble_min:
+            return None
+        return vibration(s.surface_rumble_freq, rumble * s.surface_rumble_gain)
+
 
 # --- Controller -----------------------------------------------------------
 
@@ -203,14 +212,16 @@ class Controller:
         2. ABS pulse           - tire lockup buzz under hard braking
         3. Firmware end wall   - hard wall near 100% travel (hysteresis)
         4. Static brake wall   - optional fixed wall at brake_static_wall_at
-        5. Brake resistance    - default rigid ramp 0..max_force
+        5. Surface rumble      - off-road texture buzz; replaces resistance
+        6. Brake resistance    - default rigid ramp 0..max_force
 
     R2 priority (top wins):
         1. Gear shift thump    - one-shot burst on every shift, brief
         2. Rev limiter buzz    - rpm/max_rpm >= rev_limit_ratio
         3. Wheelspin buzz      - driven wheels slipping (surface-aware)
         4. Firmware end wall   - hard wall near 100% travel (hysteresis)
-        5. Throttle resistance - default rigid ramp 0..max_force
+        5. Surface rumble      - off-road texture buzz; replaces resistance
+        6. Throttle resistance - default rigid ramp 0..max_force
     """
 
     def __init__(self, settings):
@@ -251,7 +262,12 @@ class Controller:
         if s.enable_brake_static_wall:
             return build_brake_walls(s.brake_static_wall_at, s.brake_static_wall_force, s.wall_zones)
 
-        # 5. Brake resistance - default rigid ramp
+        # 5. Surface rumble - off-road texture; replaces resistance
+        surf = self.anim.surface_rumble(t, s)
+        if surf is not None:
+            return surf
+
+        # 6. Brake resistance - default rigid ramp
         return self.anim.brake_resistance(t, s)
 
     def R2(self, t, s, now):
@@ -279,5 +295,10 @@ class Controller:
         if self._r2_in_wall:
             return self.wall
 
-        # 5. Throttle resistance - default rigid ramp
+        # 5. Surface rumble - off-road texture; replaces resistance
+        surf = self.anim.surface_rumble(t, s)
+        if surf is not None:
+            return surf
+
+        # 6. Throttle resistance - default rigid ramp
         return self.anim.throttle_ramp(t, s)

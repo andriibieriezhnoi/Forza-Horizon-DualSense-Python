@@ -16,6 +16,15 @@ class Settings:
     pedal_value_max: int = 255
     wall_zones: int = 2                       # firmware wall depth: 1 = only zone 9 (lightest), 9 = whole travel walled
 
+    # --- Surface rumble (both triggers) ---
+    # Ambient texture buzz from FH surface_rumble_* telemetry (0..1 per wheel):
+    # gravel/dirt/grass push it up, tarmac is ~0. Sits below the walls but above
+    # resistance in both chains, so it replaces flat resistance while off-road.
+    enable_surface_rumble: bool = True
+    surface_rumble_gain: float = 80.0         # 0..1 rumble * gain -> 0-255 vibration amplitude
+    surface_rumble_freq: int = 25             # Hz; low = earthy
+    surface_rumble_min: float = 0.1           # deadzone: ignore rumble below this
+
     # =============================================================
     # L2 — Brake pedal
     # =============================================================

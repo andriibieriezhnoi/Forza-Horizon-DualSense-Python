@@ -47,6 +47,11 @@ SETTING_SECTIONS = [
     ("Wheelspin buzz", [
         ("wheelspin_amp",        "Amplitude",               0, 255),
     ]),
+    ("Surface rumble", [
+        ("surface_rumble_gain", "Gain",           0.0, 255.0),
+        ("surface_rumble_freq", "Frequency (Hz)", 0,   255),
+        ("surface_rumble_min",  "Min threshold",  0.0, 1.0),
+    ]),
     ("Gear shift thump", [
         ("gear_shift_freq",        "Frequency (Hz)", 0, 255),
         ("gear_shift_amp",         "Amplitude",      0, 255),
