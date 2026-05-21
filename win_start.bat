@@ -9,7 +9,9 @@ set "PRERELEASE=false"
 set "DIR=%~dp0"
 set "APP=%DIR%app"
 set "BUNDLE=%APP%\fhds.zuv.py"
-set "REPO=andriibieriezhnoi/Forza-Horizon-DualSense-Python"
+REM Source repo for the bundle. Override with the FHDS_REPO env var if needed.
+if not defined FHDS_REPO set "FHDS_REPO=andriibieriezhnoi/Forza-Horizon-DualSense-Python"
+set "REPO=%FHDS_REPO%"
 
 if /i "%PRERELEASE%"=="true" (
     set "URL=https://github.com/%REPO%/releases/download/v999.0.0/fhds.zuv.py"
@@ -38,12 +40,13 @@ goto argloop
 :ready
 if not exist "%APP%" mkdir "%APP%"
 
+REM Always grab the latest release. Replace atomically; keep the cached copy if offline.
+echo Fetching latest fhds.zuv.py from %REPO%...
+curl.exe -L --fail -o "%BUNDLE%.new" "%URL%" && move /y "%BUNDLE%.new" "%BUNDLE%" >nul
+del /q "%BUNDLE%.new" 2>nul
 if not exist "%BUNDLE%" (
-    echo Downloading fhds.zuv.py...
-    curl.exe -L --fail -o "%BUNDLE%" "%URL%" || (
-        echo Download failed. Get it manually from https://github.com/%REPO%/releases
-        pause & exit /b 1
-    )
+    echo Download failed and no cached bundle. Get it from https://github.com/%REPO%/releases
+    pause & exit /b 1
 )
 
 where uv >nul 2>nul

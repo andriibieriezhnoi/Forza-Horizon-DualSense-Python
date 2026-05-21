@@ -9,7 +9,7 @@ PRERELEASE=false
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 APP="$ROOT/app"
 BUNDLE="$APP/fhds.zuv.py"
-REPO="andriibieriezhnoi/Forza-Horizon-DualSense-Python"
+REPO="${FHDS_REPO:-andriibieriezhnoi/Forza-Horizon-DualSense-Python}"
 
 if [ "$PRERELEASE" = "true" ]; then
     URL="https://github.com/$REPO/releases/download/v999.0.0/fhds.zuv.py"
@@ -32,12 +32,14 @@ trap 'c=$?; echo; echo "[fhds exited with code $c]"; [ ${#GAME[@]} -eq 0 ] && re
 
 mkdir -p "$APP"
 
-if [ ! -f "$BUNDLE" ]; then
-    echo "Downloading fhds.zuv.py..."
-    curl -LsSf --fail "$URL" -o "$BUNDLE" || {
-        echo "Download failed. Get it manually from https://github.com/$REPO/releases"
-        exit 1
-    }
+# Always grab the latest release. Replace atomically; keep the cached copy if offline.
+echo "Fetching latest fhds.zuv.py from $REPO..."
+if curl -LsSf --fail "$URL" -o "$BUNDLE.new"; then
+    mv -f "$BUNDLE.new" "$BUNDLE"
+else
+    rm -f "$BUNDLE.new"
+    [ -f "$BUNDLE" ] || { echo "Download failed and no cached bundle. Get it from https://github.com/$REPO/releases"; exit 1; }
+    echo "Update check failed; using the cached bundle."
 fi
 
 if ! command -v uv >/dev/null 2>&1; then
