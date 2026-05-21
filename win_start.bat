@@ -9,7 +9,7 @@ set "PRERELEASE=false"
 set "DIR=%~dp0"
 set "APP=%DIR%app"
 set "BUNDLE=%APP%\fhds.zuv.py"
-set "REPO=HamzaYslmn/Forza-Horizon-DualSense-Python"
+set "REPO=andriibieriezhnoi/Forza-Horizon-DualSense-Python"
 
 if /i "%PRERELEASE%"=="true" (
     set "URL=https://github.com/%REPO%/releases/download/v999.0.0/fhds.zuv.py"

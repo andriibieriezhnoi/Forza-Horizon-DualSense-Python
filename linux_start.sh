@@ -9,7 +9,7 @@ PRERELEASE=false
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 APP="$ROOT/app"
 BUNDLE="$APP/fhds.zuv.py"
-REPO="HamzaYslmn/Forza-Horizon-DualSense-Python"
+REPO="andriibieriezhnoi/Forza-Horizon-DualSense-Python"
 
 if [ "$PRERELEASE" = "true" ]; then
     URL="https://github.com/$REPO/releases/download/v999.0.0/fhds.zuv.py"
