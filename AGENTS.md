@@ -114,6 +114,7 @@ Port `5300`.
 - **Don't touch rumble bits.** HID writer only flips trigger bits in `valid_flag0`.
 - **Always drain UDP** via `recv_latest()`; never react to stale packets.
 - **State-change writes only.** The loop diffs `(left, right)` against `prev` and only calls `ds.set(...)` on change.
+- **Triggers are smoothed.** `Controller` runs each trigger through `_TriggerSmoother` (slew on rigid force, attack/release fade on vibration amp); event buzzes (ABS, rev limiter, wheelspin) set amplitude proportional to threshold overshoot, not binary full-amp. Tune via `enable_smoothing` + `*_per_s` in `settings.py`.
 - No em dash (`-`) anywhere - in code, docs, or chat. Plain hyphens only.
 - UTF-8 source files.
 

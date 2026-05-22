@@ -13,6 +13,7 @@ log = logging.getLogger("fhds")
 # Listed highest priority first, matching the Controller's effect precedence.
 TRIGGER_CONTROLS = [
     ("Shared effects", [
+        ("enable_smoothing",      "Trigger smoothing"),
         ("enable_surface_rumble", "Surface rumble"),
         ("enable_lightbar",       "Lightbar speedline"),
     ]),

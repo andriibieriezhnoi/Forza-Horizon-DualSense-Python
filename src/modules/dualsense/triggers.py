@@ -88,6 +88,22 @@ def _ramp(value, deadzone, baseline, max_force, curve, ceiling):
     r = min(1.0, (value - deadzone) / max(ceiling - deadzone, 1))
     return baseline + (max_force - baseline) * (r ** curve)
 
+def _scale(value, lo, hi, out_max):
+    """Map value in [lo, hi] to [0, out_max], clamped. Makes event effects
+    (ABS, rev limiter, wheelspin) proportional to how far past their threshold
+    the signal is, instead of a binary full-amplitude trigger."""
+    if hi <= lo:
+        return out_max if value >= lo else 0.0
+    return out_max * min(1.0, max(0.0, (value - lo) / (hi - lo)))
+
+def _wall_approach(value, force, wall_force, release_at, engage_at):
+    """Lift `force` toward `wall_force` across (release_at, engage_at) so entry
+    into the firmware wall is a small step, not a slam from the light curve."""
+    if value <= release_at or wall_force <= force:
+        return force
+    f = min(1.0, (value - release_at) / max(engage_at - release_at, 1))
+    return force + (wall_force - force) * f
+
 def _wall_state(value, engaged, engage_at, release_at):
     """Hysteresis: enter wall at >= engage_at, leave at < release_at."""
     return value >= release_at if engaged else value >= engage_at
@@ -122,6 +138,7 @@ class TriggerAnimations:
         self._prev_gear = None
         self._shift_until = 0.0
         self._rev_until = 0.0
+        self._rev_amp = 0.0
 
     def arm_shift(self, t, s, now):
         gear = t["gear"]
@@ -139,17 +156,21 @@ class TriggerAnimations:
         return vibration(s.gear_shift_freq, s.gear_shift_amp)
 
     def rev_buzz(self, t, s, now):
-        # Brief hold so rpm bouncing against the limit doesn't stutter.
-        if not s.enable_rev_limiter:
+        # Soft limiter: amp grows from rev_limit_ratio toward redline instead of a
+        # binary trigger. Brief hold carries the last amp through rpm bounce.
+        if not s.enable_rev_limiter or t["accel"] < s.accel_deadzone:
             return None
-        if t["accel"] >= s.accel_deadzone:
-            max_rpm = t["max_rpm"]
-            rpm_r = t["rpm"] / max_rpm if max_rpm > 0 else 0.0
-            if rpm_r > s.rev_limit_ratio:
-                self._rev_until = now + s.rev_limit_hold_ms / 1000.0
-        if now < self._rev_until:
-            return vibration(s.rev_limit_freq, s.rev_limit_amp)
-        return None
+        max_rpm = t["max_rpm"]
+        rpm_r = t["rpm"] / max_rpm if max_rpm > 0 else 0.0
+        amp = _scale(rpm_r, s.rev_limit_ratio, s.rev_limit_full_ratio, s.rev_limit_amp)
+        if amp > 0:
+            self._rev_amp = amp
+            self._rev_until = now + s.rev_limit_hold_ms / 1000.0
+        elif now < self._rev_until:
+            amp = self._rev_amp
+        else:
+            return None
+        return vibration(s.rev_limit_freq, amp)
 
     def wheelspin_buzz(self, t, s, now):
         # Per-surface R2 buzz when driven wheels spin faster than the road.
@@ -160,22 +181,35 @@ class TriggerAnimations:
             return None
         # Positive slip only. Negative = locked wheels (handbrake/ABS), not wheelspin.
         wheels = DRIVEN_WHEELS.get(t["drive_train"], ("fl", "fr", "rl", "rr"))
-        if max(t[f"tire_slip_ratio_{w}"] for w in wheels) < 1.2:
+        slip = max(t[f"tire_slip_ratio_{w}"] for w in wheels)
+        if slip < 1.2:
             return None
+        # Amp scales with how hard the driven wheels spin past the break point.
+        frac = _scale(slip, 1.2, s.wheelspin_slip_full_at, 1.0)
         # Surface profile: water halves amp, off-road gets a thumpier buzz.
         if any(t[f"wheel_in_puddle_depth_{w}"] > 0.0 for w in wheels):
-            return vibration(100, max(1, s.wheelspin_amp // 2))
-        rumble = max(abs(t[f"surface_rumble_{w}"]) for w in wheels)
-        if rumble > 0.30:        # gravel / rocks
-            return vibration(20, 15)
-        if rumble > 0.10:        # dirt / loose tarmac
-            return vibration(60, 8)
-        return vibration(100, s.wheelspin_amp)  # tarmac
+            freq, amp = 100, max(1, s.wheelspin_amp // 2)
+        else:
+            rumble = max(abs(t[f"surface_rumble_{w}"]) for w in wheels)
+            if rumble > 0.30:        # gravel / rocks
+                freq, amp = 20, 15
+            elif rumble > 0.10:      # dirt / loose tarmac
+                freq, amp = 60, 8
+            else:                    # tarmac
+                freq, amp = 100, s.wheelspin_amp
+        return vibration(freq, amp * frac)
 
     def abs_pulse(self, t, s):
         if not s.enable_abs or not abs_active(t, s):
             return None
-        return vibration(s.abs_freq, s.abs_amp)
+        # Amp grows with how hard the tyres are locking, not a flat full pulse.
+        amp = max(
+            _scale(_max_slip(t, "tire_slip_ratio"),
+                   s.abs_slip_ratio_threshold, s.abs_slip_full_at, s.abs_amp),
+            _scale(_max_slip(t, "tire_combined_slip"),
+                   s.abs_combined_slip_threshold, s.abs_slip_full_at, s.abs_amp),
+        )
+        return vibration(s.abs_freq, amp)
 
     def brake_resistance(self, t, s):
         handbrake = s.enable_handbrake_bonus and t["handbrake"]
@@ -183,6 +217,8 @@ class TriggerAnimations:
             return rigid(s.handbrake_bonus) if handbrake else off()
         force = _ramp(t["brake"], s.brake_deadzone, s.brake_baseline_force,
                       s.brake_max_force, s.brake_curve, s.brake_wall_engage_at)
+        force = _wall_approach(t["brake"], force, s.brake_wall_force,
+                               s.brake_wall_release_at, s.brake_wall_engage_at)
         if handbrake:
             force += s.handbrake_bonus
         return rigid(force)
@@ -190,8 +226,11 @@ class TriggerAnimations:
     def throttle_ramp(self, t, s):
         if not s.enable_throttle_resistance:
             return off()
-        return rigid(_ramp(t["accel"], s.accel_deadzone, s.throttle_baseline_force,
-                           s.throttle_max_force, s.throttle_curve, s.throttle_wall_engage_at))
+        force = _ramp(t["accel"], s.accel_deadzone, s.throttle_baseline_force,
+                      s.throttle_max_force, s.throttle_curve, s.throttle_wall_engage_at)
+        force = _wall_approach(t["accel"], force, s.throttle_wall_force,
+                               s.throttle_wall_release_at, s.throttle_wall_engage_at)
+        return rigid(force)
 
     def surface_rumble(self, t, s):
         # Ambient off-road texture on both triggers; replaces flat resistance.
@@ -201,6 +240,75 @@ class TriggerAnimations:
         if rumble < s.surface_rumble_min:
             return None
         return vibration(s.surface_rumble_freq, rumble * s.surface_rumble_gain)
+
+
+# --- Output smoothing -----------------------------------------------------
+
+def _slew(current, target, max_delta):
+    """Move `current` toward `target` by at most `max_delta`."""
+    if max_delta <= 0:
+        return current
+    if target > current:
+        return min(target, current + max_delta)
+    return max(target, current - max_delta)
+
+
+class _TriggerSmoother:
+    """Eases one trigger's output over time. Holds state only; the rates live in
+    Settings so they stay tunable per profile. Rigid force is slew-limited;
+    vibration amplitude fades in/out (attack/release). Cross-mode jumps and
+    firmware walls can't be interpolated, so they snap - except a dying pulse,
+    which decays to silence first so effects don't end with a click."""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self._mode = None
+        self._force = 0.0
+        self._amp = 0.0
+        self._freq = 0
+
+    def apply(self, frame, dt, s):
+        if not s.enable_smoothing:
+            self._mode = None
+            return frame
+        mode = frame[0]
+
+        # A pulse that just ended: fade its amplitude out before the new frame.
+        if self._mode == M_PULSE and mode != M_PULSE:
+            self._amp = max(0.0, self._amp - s.amp_release_per_s * dt)
+            if self._amp >= 1.0:
+                return vibration(self._freq, self._amp)
+            self._mode = None
+
+        if mode == M_RIGID:
+            target = frame[1][1]
+            if self._mode == M_RIGID:
+                self._force = _slew(self._force, target, s.force_slew_per_s * dt)
+            else:
+                self._force = float(target)
+            self._mode = M_RIGID
+            return rigid(self._force)
+
+        if mode == M_PULSE:
+            freq, target = frame[1]
+            if self._mode == M_PULSE and freq == self._freq:
+                rate = s.amp_attack_per_s if target >= self._amp else s.amp_release_per_s
+                self._amp = _slew(self._amp, target, rate * dt)
+            else:
+                if self._mode != M_PULSE:
+                    self._amp = 0.0          # fade in from silence on entry
+                self._freq = freq
+                self._amp = _slew(self._amp, target, s.amp_attack_per_s * dt)
+            self._mode = M_PULSE
+            return vibration(self._freq, self._amp)
+
+        # M_OFF, firmware wall (M_FEEDBACK), deep gear kick (M_PULSE_AB): snap.
+        self._mode = mode
+        self._force = 0.0
+        self._amp = 0.0
+        return frame
 
 
 # --- Controller -----------------------------------------------------------
@@ -233,14 +341,26 @@ class Controller:
         self.wall = build_wall(settings.wall_zones)
         self._l2_in_wall = False
         self._r2_in_wall = False
+        self._l2_smoother = _TriggerSmoother()
+        self._r2_smoother = _TriggerSmoother()
+        self._last_now = None
 
     def update(self, t, s):
         if not t["on"]:
+            self._l2_smoother.reset()
+            self._r2_smoother.reset()
+            self._last_now = None
             return off(), off()
         now = time.monotonic()
+        # Slew by elapsed time (telemetry rate varies); clamp so a gap after idle
+        # doesn't produce one huge step.
+        dt = 0.0 if self._last_now is None else min(0.05, max(0.0, now - self._last_now))
+        self._last_now = now
         if s.enable_gear_shift or s.enable_gear_shift_brake:
             self.anim.arm_shift(t, s, now)
-        return self.L2(t, s, now), self.R2(t, s, now)
+        left = self._l2_smoother.apply(self.L2(t, s, now), dt, s)
+        right = self._r2_smoother.apply(self.R2(t, s, now), dt, s)
+        return left, right
 
     def L2(self, t, s, now):
         brake = t["brake"]

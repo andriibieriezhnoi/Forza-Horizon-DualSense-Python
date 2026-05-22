@@ -16,6 +16,16 @@ class Settings:
     pedal_value_max: int = 255
     wall_zones: int = 2                       # firmware wall depth: 1 = only zone 9 (lightest), 9 = whole travel walled
 
+    # --- Output smoothing (both triggers) ---
+    # Eases trigger output over time so effects ramp instead of snapping: rigid
+    # force is slew-rate limited and vibration amplitude fades in/out. This is
+    # what keeps full throttle/brake, ABS, rev limiter and gear thumps from
+    # feeling jarring. Off restores the old instant behavior.
+    enable_smoothing: bool = True
+    force_slew_per_s: int = 800               # max rigid force change per second (0-255 scale)
+    amp_attack_per_s: int = 1200              # vibration amplitude rise per second (fade-in)
+    amp_release_per_s: int = 700              # vibration amplitude fall per second (fade-out tail)
+
     # --- Surface rumble (both triggers) ---
     # Ambient texture buzz from FH surface_rumble_* telemetry (0..1 per wheel):
     # gravel/dirt/grass push it up, tarmac is ~0. Sits below the walls but above
@@ -37,6 +47,7 @@ class Settings:
     brake_curve: float = 5.0                  # parabolic: light through mid travel, sharply firm near the wall
     brake_wall_engage_at: int = 250           # accel byte to switch to firmware wall
     brake_wall_release_at: int = 200          # accel byte to release the wall back to rigid curve (hysteresis)
+    brake_wall_force: int = 140               # rigid force the curve climbs to over [release_at, engage_at] so wall entry isn't a slam
     enable_brake_static_wall: bool = False    # Optional extra static wall
     brake_static_wall_at: int = 128           # brake byte where the static wall sits
     brake_static_wall_force: int = 255        # how hard the static wall resists (0-255)
@@ -50,7 +61,8 @@ class Settings:
     abs_brake_threshold: int = 80             # only pulse if we're definitely braking hard
     abs_min_speed_kmh: float = 15.0           # only pulse if we're definitely moving
     abs_slip_ratio_threshold: float = 1.0
-    abs_combined_slip_threshold: float = 1.0  
+    abs_combined_slip_threshold: float = 1.0
+    abs_slip_full_at: float = 1.6             # slip at which the ABS pulse reaches abs_amp (ramps up from the threshold)
     abs_freq: int = 10                        # Hz for the ABS pulse
     abs_amp: int = 20                         # raw 0-255 byte for mode 0x06 vibration amplitude
 
@@ -66,10 +78,12 @@ class Settings:
     throttle_curve: float = 5.0               # parabolic: feather-light early, slightly firmer near the wall
     throttle_wall_engage_at: int = 250        # accel byte to switch to firmware wall
     throttle_wall_release_at: int = 200       # accel byte to release the wall back to rigid (hysteresis)
+    throttle_wall_force: int = 40             # rigid force the curve climbs to over [release_at, engage_at] so wall entry isn't a slam
 
     # Rev limiter: vibrate when rpm/max_rpm exceeds the ratio.
     enable_rev_limiter: bool = True
     rev_limit_ratio: float = 0.93             # fire right at the cutoff, not across the whole upper rpm range
+    rev_limit_full_ratio: float = 1.0         # rpm ratio at which the buzz reaches rev_limit_amp (soft ramp from rev_limit_ratio)
     rev_limit_freq: int = 20
     rev_limit_amp: int = 10                   # raw 0-255 byte for mode 0x06 vibration amplitude
     rev_limit_hold_ms: float = 120.0          # hold buzz this long after each trigger so the rpm bounce doesn't stutter it
@@ -80,6 +94,7 @@ class Settings:
     # 100 Hz (only amp is user-tunable).
     enable_wheelspin_buzz: bool = True
     wheelspin_amp: int = 3                    # raw 0-255 byte for mode 0x06 vibration amplitude
+    wheelspin_slip_full_at: float = 2.5       # slip at which wheelspin buzz reaches full amp (ramps from the 1.2 break point)
 
     # Gear shift: single short vibration burst on up/downshift while moving.
     enable_gear_shift: bool = True
