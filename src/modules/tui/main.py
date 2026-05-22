@@ -9,8 +9,8 @@ from textual.containers import Horizontal
 from textual.widgets import Button, Header, Input, Static, Switch, TabbedContent, TabPane
 
 from lang import set_language, t
-from modules import dualsense, loop, profiles, udplistener
-from modules.dualsense.triggers import off, vibration
+from modules import dualsense, loop, preferences, profiles, udplistener
+from modules.dualsense.triggers import off, vibrate
 from modules.preferences import _version
 
 from .controls_tab import ControlsTab
@@ -19,6 +19,7 @@ from .logs_tab import DEFAULT_LOG_LEVEL, LogsTab
 from .profiles_tab import ProfilesTab
 from .settings_tab import SettingsTab
 from .system_tab import SystemTab
+from .widgets import RangeSlider
 
 log = logging.getLogger("fhds")
 
@@ -34,6 +35,9 @@ class _LogHandler(logging.Handler):
         self.app = app
 
     def emit(self, record):
+        # MARK: drop records during teardown - call_from_thread on a stopped app raises
+        if getattr(self.app, "_tearing_down", False):
+            return
         msg = self.format(record)
         if threading.get_ident() == self.app._thread_id:
             self.app.write_log(msg)
@@ -88,6 +92,8 @@ class TriggerTUI(App):
         self._ds = None
         self._listener_cm = None
         self._listener = None
+        self._status_timer = None
+        self._tearing_down = False
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -131,13 +137,18 @@ class TriggerTUI(App):
         self.refresh_status()
         self.refresh_profile()
         self._set_car_label(self._car_profile or "auto")
-        self.set_interval(1.0, self.refresh_status)
+        # MARK: keep handle so on_unmount can stop the poller before backend teardown
+        self._status_timer = self.set_interval(1.0, self.refresh_status)
         log.info("Starting controller and telemetry listener...")
         self.call_after_refresh(self._start_backend)
 
     def on_unmount(self):
         # Detach our log handler before tearing down: backend shutdown emits
         # log records, and routing those into the unmounted widgets raises.
+        self._tearing_down = True
+        if self._status_timer is not None:
+            self._status_timer.stop()
+            self._status_timer = None
         root = logging.getLogger()
         for h in list(root.handlers):
             if isinstance(h, _LogHandler):
@@ -153,6 +164,8 @@ class TriggerTUI(App):
     def _start_backend(self):
         s = self.settings
         try:
+            # MARK: resync prefs - user may have switched profile before this deferred call ran
+            preferences.load(s)
             self._ds = dualsense.DualSense(
                 startup_pulse_force=s.startup_pulse_force,
                 enable_startup_pulse=s.enable_startup_pulse,
@@ -167,6 +180,11 @@ class TriggerTUI(App):
             log.info("In game: HUD & Gameplay -> Data Out: ON, IP %s, Port %d", s.udp_host, s.udp_port)
             self._thread = threading.Thread(target=self._run_loop, daemon=True)
             self._thread.start()
+        except OSError as exc:
+            # MARK: friendly UDP bind error - usually port in use
+            log.exception("UDP bind failed on %s:%d", s.udp_host, s.udp_port)
+            msg = t("UDP port {port} is in use. Close the other listener or change the port in the System tab.").format(port=s.udp_port)
+            self.query_one("#status", Static).update(msg)
         except Exception as exc:
             log.exception("Backend startup failed")
             self.query_one("#status", Static).update(t("Backend failed: {error}").format(error=exc))
@@ -234,14 +252,24 @@ class TriggerTUI(App):
 
     def refresh_setting_widgets(self) -> None:
         """Called by tabs after profile load / settings reset."""
-        for sw in self.query(Switch):
-            if sw.id and hasattr(self.settings, sw.id):
-                sw.value = getattr(self.settings, sw.id)
-        for inp in self.query(Input):
-            if inp.id and inp.id.startswith("set-"):
-                attr = inp.id[4:]
-                if hasattr(self.settings, attr):
-                    inp.value = str(getattr(self.settings, attr))
+        # MARK: guard programmatic Switch/Input writes so tab handlers skip save churn
+        self._refreshing = True
+        try:
+            for sw in self.query(Switch):
+                if sw.id and hasattr(self.settings, sw.id):
+                    sw.value = getattr(self.settings, sw.id)
+            for inp in self.query(Input):
+                if inp.id and inp.id.startswith("set-"):
+                    attr = inp.id[4:]
+                    if hasattr(self.settings, attr):
+                        inp.value = str(getattr(self.settings, attr))
+            for sld in self.query(RangeSlider):
+                if sld.id and sld.id.startswith("slider-"):
+                    attr = sld.id[len("slider-"):]
+                    if hasattr(self.settings, attr):
+                        sld.value = float(getattr(self.settings, attr))
+        finally:
+            self._refreshing = False
 
     def haptic(self, on: bool) -> None:
         if self._ds and self._ds.connected:
@@ -249,7 +277,7 @@ class TriggerTUI(App):
 
     def _do_haptic(self, on: bool) -> None:
         amp = HAPTIC_AMP_ON if on else HAPTIC_AMP_OFF
-        v = vibration(HAPTIC_FREQ_HZ, amp)
+        v = vibrate(HAPTIC_FREQ_HZ, amp)
         self._ds.set(v, v)
         time.sleep(HAPTIC_DURATION_S)
         self._ds.set(off(), off())

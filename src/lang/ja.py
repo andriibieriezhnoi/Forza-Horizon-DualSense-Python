@@ -4,7 +4,7 @@
 NAME = "日本語"
 
 STRINGS = {
-    # --- tabs / chrome ---
+    # --- chrome / tabs ---
     "Controls": "操作",
     "Profiles": "プロファイル",
     "Settings": "設定",
@@ -16,62 +16,74 @@ STRINGS = {
     "Changelog": "変更履歴",
     "connected": "接続済み",
     "waiting": "待機中",
+    "active": "使用中",
+    "(none)": "（なし）",
     "Backend failed: {error}": "バックエンド起動失敗: {error}",
     "Profile: {name}": "プロファイル: {name}",
-    "(none)": "（なし）",
-    "active": "使用中",
+    "Active: {name}": "使用中: {name}",
 
-    # --- controls tab ---
-    "Brake stiffness": "ブレーキ剛性",
-    "Static brake wall": "静的ブレーキウォール",
-    "Handbrake stiffness bonus": "ハンドブレーキ剛性ボーナス",
-    "ABS rumble": "ABS 振動",
-    "Shift thump": "シフトショック",
-    "Throttle stiffness": "スロットル剛性",
-    "Redline buzz": "レッドライン振動",
+    # --- settings tab sections ---
+    "Pedal dead zones": "ペダルのデッドゾーン",
+    "Left trigger - Brake force": "左トリガー - ブレーキフォース",
+    "Left trigger - Static wall (optional)": "左トリガー - 静的ウォール（任意）",
+    "Right trigger - Gas force": "右トリガー - アクセルフォース",
+    "ABS (anti-lock brake) rumble": "ABS（アンチロックブレーキ）振動",
+    "Redline (rev limiter) buzz": "レッドライン（レブリミッター）振動",
     "Wheelspin buzz": "ホイールスピン振動",
-
-    # --- settings sections ---
-    "Pedals / deadzones": "ペダル / デッドゾーン",
-    "Brake (left trigger)": "ブレーキ（左トリガー）",
-    "Brake static wall": "ブレーキ静的ウォール",
-    "Throttle (right trigger)": "スロットル（右トリガー）",
-    "Rev limiter": "レブリミッター",
     "Gear shift thump": "シフトショック",
 
-    # --- settings fields ---
-    "Accel deadzone": "アクセルデッドゾーン",
-    "Brake deadzone": "ブレーキデッドゾーン",
-    "Baseline force": "基準フォース",
-    "Max force": "最大フォース",
-    "Curve": "カーブ",
-    "Static wall at": "静的ウォール位置",
-    "Static wall force": "静的ウォール強度",
-    "Handbrake bonus": "ハンドブレーキボーナス",
-    "Brake threshold": "ブレーキしきい値",
-    "Min speed (km/h)": "最低速度 (km/h)",
-    "Slip ratio threshold": "スリップ率しきい値",
-    "Combined slip threshold": "複合スリップしきい値",
-    "Frequency (Hz)": "周波数 (Hz)",
-    "Amplitude": "振幅",
-    "Trigger at RPM ratio": "RPM 比で作動",
-    "Hold (ms)": "保持 (ms)",
-    "Duration (ms)": "継続 (ms)",
+    # --- settings tab fields ---
+    "Gas trigger dead zone": "アクセルトリガーのデッドゾーン",
+    "Brake trigger dead zone": "ブレーキトリガーのデッドゾーン",
+    "Resting stiffness": "待機時の硬さ",
+    "Hard-press stiffness": "深押し時の硬さ",
+    "Stiffness curve shape": "硬さカーブの形状",
+    "Handbrake extra stiffness": "ハンドブレーキ追加硬度",
+    "Wall position on the trigger": "トリガー上のウォール位置",
+    "Wall hardness": "ウォールの硬さ",
+    "Only when braking harder than": "ブレーキ強度が次を超えるときのみ",
+    "Only when faster than (km/h)": "速度が次を超えるときのみ (km/h)",
+    "Wheel slip sensitivity": "ホイールスリップ感度",
+    "Tire grip sensitivity": "タイヤグリップ感度",
+    "Rumble speed (Hz)": "振動の速さ (Hz)",
+    "Rumble strength": "振動の強さ",
+    "Fire near redline at": "レッドライン付近で発火",
+    "Buzz speed (Hz)": "ブザー速度 (Hz)",
+    "Buzz strength": "ブザー強度",
+    "Buzz hold time (ms)": "ブザー保持時間 (ms)",
+    "Thump speed (Hz)": "ショックの速さ (Hz)",
+    "Thump strength": "ショックの強さ",
+    "Thump length (ms)": "ショックの長さ (ms)",
 
-    # --- system sections / fields ---
+    # --- settings tab buttons / hints ---
+    "Reset to defaults": "デフォルトに戻す",
+    "Click again to confirm reset": "もう一度クリックしてリセットを確認",
+    "In Forza HUD: host 127.0.0.1 (try ::1 if it fails).":
+        "Forza HUD で host を 127.0.0.1 に設定（うまくいかなければ ::1 を試す）。",
+    "UDP port {port} is in use. Close the other listener or change the port in the System tab.":
+        "UDP ポート {port} は使用中です。他のリスナーを閉じるか、システムタブでポートを変更してください。",
+
+    # --- system tab sections / fields ---
     "Telemetry (applies on next launch)": "テレメトリ（次回起動時に適用）",
     "Startup pulse": "起動パルス",
     "Reconnect": "再接続",
     "Game detection": "ゲーム検出",
     "UDP port": "UDP ポート",
-    "Startup pulse force": "起動パルス強度",
-    "Auto-reconnect controller (disable for HidHide)": "コントローラー自動再接続（HidHide 時は無効化）",
-    "Reconnect interval (s)": "再接続間隔 (秒)",
-    "Detect game (auto-exit when it closes)": "ゲームを検出（終了時に自動終了）",
-    "Poll interval (s)": "ポーリング間隔 (秒)",
-    "Reset to defaults": "デフォルトに戻す",
+    "Startup buzz strength": "起動ブザーの強さ",
+    "Auto-reconnect when controller drops": "コントローラー切断時に自動再接続",
+    "Reconnect check interval (s)": "再接続確認間隔 (秒)",
+    "Auto-exit when the game closes": "ゲーム終了時に自動終了",
+    "Game-watch check interval (s)": "ゲーム監視間隔 (秒)",
 
-    # --- updates (top of System tab) ---
+    # --- system tab controller block ---
+    "Controller": "コントローラー",
+    "Lock to controller": "コントローラーに固定",
+    "Rescan": "再スキャン",
+    "Auto (first found)": "自動（最初に見つかったもの）",
+    "attached now": "現在接続中",
+    "(no serial - not selectable)": "（シリアルなし - 選択不可）",
+
+    # --- system tab updates block ---
     "Updates": "アップデート",
     "Check for updates at launch": "起動時に更新を確認",
     "When off, ZUV will not prompt for updates on startup. Toggle on and restart the app to check for a new release.":
@@ -85,7 +97,6 @@ STRINGS = {
     "Delete": "削除",
     "Save": "保存",
     "New profile name": "新しいプロファイル名",
-    "Active: {name}": "使用中: {name}",
     "File: {path}": "ファイル: {path}",
     "Note: the [b]Default[/] profile is reset to built-in values every time the app launches so new features and tuning come through. System settings (System tab) are preserved. To keep your own tuning across launches, save it as a named profile here.":
         "注意: [b]Default[/] プロファイルは、新機能や調整を反映するためアプリ起動のたびに組み込み値へリセットされます。システム設定（システムタブ）は保持されます。独自の調整を起動間で保持するには、ここで名前付きプロファイルとして保存してください。",

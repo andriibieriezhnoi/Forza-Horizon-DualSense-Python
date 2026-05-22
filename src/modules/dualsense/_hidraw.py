@@ -60,12 +60,16 @@ class device:
         return fcntl.ioctl(self._fd, _ioc(3, _HID_TYPE, _HIDIOCSFEATURE_NR, len(buf)), buf, True)
 
     def read(self, size, timeout_ms=0):
+        # MARK: catch OSError (EBADF) - fd may close between caller's connected-check and read
         try:
             return os.read(self._fd, size)
-        except BlockingIOError:
+        except (BlockingIOError, OSError):
             return b""
 
     def close(self):
         if self._fd >= 0:
-            os.close(self._fd)
+            try:
+                os.close(self._fd)
+            except OSError:
+                pass
             self._fd = -1

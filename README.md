@@ -1,5 +1,12 @@
+<p align="right">
+  <strong>English</strong> •
+  <a href="docs/ReadmeTR.md">Türkçe</a> •
+  <a href="docs/ReadmeJA.md">日本語</a> •
+  <a href="docs/ReadmeZH.md">简体中文</a>
+</p>
+
 <div align="center">
-  <h1>🏎️ Forza Horizon — DualSense Adaptive Triggers</h1>
+  <h1>🏎️ Forza Horizon - DualSense Adaptive Triggers</h1>
   <p><strong>Real trigger feedback for Forza Horizon on PC.</strong></p>
   <p><em>Feel the brakes. Feel the engine. No setup juggling.</em></p>
 </div>
@@ -10,7 +17,7 @@
 
 <div align="center">
   <a href="https://www.youtube.com/watch?v=-3Cp0PfL52Y">
-    <img src="img/tuiyoutube.png" alt="Forza Horizon DualSense Adaptive Trigger Mod" style="width:100%;">
+    <img src="docs/img/tuiyoutube.png" alt="Forza Horizon DualSense Adaptive Trigger Mod" style="width:100%;">
   </a>
 </div>
 
@@ -121,10 +128,13 @@ In Forza Horizon, open **Settings → HUD and Gameplay** and scroll to the botto
 | Data Out IP Address | **127.0.0.1** |
 | Data Out IP Port | **5300** |
 
+> [!NOTE]
+> In some versions of Forza, entering `127.0.0.1` as the IP address may not work. If the application doesn't receive telemetry, try entering `::1` (IPv6 loopback) instead.
+
 <p align="center">
-  <img src="img/en.png" alt="English Settings" width="48%" style="border-radius: 8px;">
+  <img src="docs/img/en.png" alt="English Settings" width="48%" style="border-radius: 8px;">
   &nbsp;
-  <img src="img/tr.png" alt="Turkish Settings" width="48%" style="border-radius: 8px;">
+  <img src="docs/img/tr.png" alt="Turkish Settings" width="48%" style="border-radius: 8px;">
 </p>
 
 ---
@@ -183,9 +193,9 @@ Want the triggers to turn on automatically when you press **Play**? Tell Steam t
      "C:\Your\Path\To\Forza-Horizon-DualSense-Python\win_start.bat" %command%
      ```
 
-That's it. Press **Play** — the launcher runs, then the game opens.
+That's it. Press **Play** - the launcher runs, then the game opens.
 
-![Steam launch options](img/steaming.png)
+![Steam launch options](docs/img/steaming.png)
 
 <details>
 <summary>Advanced — run the Python script directly (no BAT file)</summary>
@@ -212,7 +222,7 @@ Every effect (brake force, ABS buzz, gear thump, rev limiter, etc.) can be tweak
 | Symptom | Fix |
 |---------|-----|
 | `DualSense gamepad interface not found` | Controller not connected, or HidHide is hiding it — allowlist `python.exe`. |
-| `No UDP packets yet` | Forza's Data Out is off, IP/port is wrong, or Windows Firewall is blocking. |
+| `No UDP packets yet` | Forza's Data Out is off, IP/port is wrong, Windows Firewall is blocking, or try changing the IP from `127.0.0.1` to `::1`. |
 | Windows Defender / SmartScreen blocks `win_start.bat` | 1. On the blue "Windows protected your PC" screen, click **"More info"**.<br>2. Click the **"Run anyway"** button that appears at the bottom. (The script only downloads required dependencies.) |
 | Triggers feel weak | Raise `brake_max_force` / `throttle_max_force`, or lower the matching `curve`. |
 | Triggers feel like a brick wall | Lower `brake_max_force` / `throttle_max_force`, or raise the matching `curve`. |

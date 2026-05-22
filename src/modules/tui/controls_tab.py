@@ -62,6 +62,9 @@ class ControlsTab(VerticalScroll):
                             yield Label(t(label))
 
     def on_switch_changed(self, event: Switch.Changed):
+        # MARK: ignore events fired by programmatic widget refresh (profile/reset)
+        if getattr(self.app, "_refreshing", False):
+            return
         attr = event.switch.id
         if attr and hasattr(self.settings, attr):
             setattr(self.settings, attr, event.value)

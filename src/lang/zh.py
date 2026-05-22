@@ -4,7 +4,7 @@
 NAME = "中文"
 
 STRINGS = {
-    # --- tabs / chrome ---
+    # --- chrome / tabs ---
     "Controls": "控制",
     "Profiles": "配置文件",
     "Settings": "设置",
@@ -16,62 +16,74 @@ STRINGS = {
     "Changelog": "更新日志",
     "connected": "已连接",
     "waiting": "等待中",
+    "active": "当前",
+    "(none)": "（无）",
     "Backend failed: {error}": "后端启动失败：{error}",
     "Profile: {name}": "配置文件：{name}",
-    "(none)": "（无）",
-    "active": "当前",
+    "Active: {name}": "当前：{name}",
 
-    # --- controls tab ---
-    "Brake stiffness": "刹车阻力",
-    "Static brake wall": "静态刹车墙",
-    "Handbrake stiffness bonus": "手刹阻力加成",
-    "ABS rumble": "ABS 振动",
-    "Shift thump": "换挡冲击",
-    "Throttle stiffness": "油门阻力",
-    "Redline buzz": "红线区震动",
+    # --- settings tab sections ---
+    "Pedal dead zones": "踏板死区",
+    "Left trigger - Brake force": "左扳机 - 刹车力",
+    "Left trigger - Static wall (optional)": "左扳机 - 静态防护墙（可选）",
+    "Right trigger - Gas force": "右扳机 - 油门力",
+    "ABS (anti-lock brake) rumble": "ABS（防抱死刹车）震动",
+    "Redline (rev limiter) buzz": "红线（限速器）震动",
     "Wheelspin buzz": "车轮打滑震动",
-
-    # --- settings sections ---
-    "Pedals / deadzones": "踏板 / 死区",
-    "Brake (left trigger)": "刹车（左扳机）",
-    "Brake static wall": "刹车静态防护墙",
-    "Throttle (right trigger)": "油门（右扳机）",
-    "Rev limiter": "转速限制器",
     "Gear shift thump": "换挡冲击",
 
-    # --- settings fields ---
-    "Accel deadzone": "油门死区",
-    "Brake deadzone": "刹车死区",
-    "Baseline force": "基础力度",
-    "Max force": "最大力度",
-    "Curve": "曲线",
-    "Static wall at": "静态墙位置",
-    "Static wall force": "静态墙力度",
-    "Handbrake bonus": "手刹加成",
-    "Brake threshold": "刹车阈值",
-    "Min speed (km/h)": "最低速度 (km/h)",
-    "Slip ratio threshold": "滑移率阈值",
-    "Combined slip threshold": "综合滑移阈值",
-    "Frequency (Hz)": "频率 (Hz)",
-    "Amplitude": "振幅",
-    "Trigger at RPM ratio": "在转速比触发",
-    "Hold (ms)": "保持 (ms)",
-    "Duration (ms)": "持续 (ms)",
+    # --- settings tab fields ---
+    "Gas trigger dead zone": "油门扳机死区",
+    "Brake trigger dead zone": "刹车扳机死区",
+    "Resting stiffness": "静止阻力",
+    "Hard-press stiffness": "重压阻力",
+    "Stiffness curve shape": "阻力曲线形状",
+    "Handbrake extra stiffness": "手刹额外阻力",
+    "Wall position on the trigger": "扳机上的防护墙位置",
+    "Wall hardness": "防护墙硬度",
+    "Only when braking harder than": "仅在刹车力大于以下时",
+    "Only when faster than (km/h)": "仅在车速大于以下时 (km/h)",
+    "Wheel slip sensitivity": "车轮打滑灵敏度",
+    "Tire grip sensitivity": "轮胎抓地灵敏度",
+    "Rumble speed (Hz)": "震动速度 (Hz)",
+    "Rumble strength": "震动强度",
+    "Fire near redline at": "红线附近触发于",
+    "Buzz speed (Hz)": "震动速度 (Hz)",
+    "Buzz strength": "震动强度",
+    "Buzz hold time (ms)": "震动保持时间 (ms)",
+    "Thump speed (Hz)": "冲击速度 (Hz)",
+    "Thump strength": "冲击强度",
+    "Thump length (ms)": "冲击时长 (ms)",
 
-    # --- system sections / fields ---
+    # --- settings tab buttons / hints ---
+    "Reset to defaults": "恢复默认",
+    "Click again to confirm reset": "再次点击以确认重置",
+    "In Forza HUD: host 127.0.0.1 (try ::1 if it fails).":
+        "在 Forza HUD 中: host 设为 127.0.0.1（若无效请尝试 ::1）。",
+    "UDP port {port} is in use. Close the other listener or change the port in the System tab.":
+        "UDP 端口 {port} 已被占用。请关闭其他监听程序，或在系统选项卡中更改端口。",
+
+    # --- system tab sections / fields ---
     "Telemetry (applies on next launch)": "遥测（下次启动生效）",
     "Startup pulse": "启动脉冲",
     "Reconnect": "重新连接",
     "Game detection": "游戏检测",
     "UDP port": "UDP 端口",
-    "Startup pulse force": "启动脉冲力度",
-    "Auto-reconnect controller (disable for HidHide)": "自动重连手柄（HidHide 时关闭）",
-    "Reconnect interval (s)": "重连间隔 (秒)",
-    "Detect game (auto-exit when it closes)": "检测游戏（关闭时自动退出）",
-    "Poll interval (s)": "轮询间隔 (秒)",
-    "Reset to defaults": "恢复默认",
+    "Startup buzz strength": "启动震动强度",
+    "Auto-reconnect when controller drops": "手柄断开时自动重连",
+    "Reconnect check interval (s)": "重连检查间隔 (秒)",
+    "Auto-exit when the game closes": "游戏关闭时自动退出",
+    "Game-watch check interval (s)": "游戏监视间隔 (秒)",
 
-    # --- updates (top of System tab) ---
+    # --- system tab controller block ---
+    "Controller": "手柄",
+    "Lock to controller": "锁定到手柄",
+    "Rescan": "重新扫描",
+    "Auto (first found)": "自动（首个发现）",
+    "attached now": "当前已连接",
+    "(no serial - not selectable)": "（无序列号 - 无法选择）",
+
+    # --- system tab updates block ---
     "Updates": "更新",
     "Check for updates at launch": "启动时检查更新",
     "When off, ZUV will not prompt for updates on startup. Toggle on and restart the app to check for a new release.":
@@ -85,7 +97,6 @@ STRINGS = {
     "Delete": "删除",
     "Save": "保存",
     "New profile name": "新配置文件名",
-    "Active: {name}": "当前：{name}",
     "File: {path}": "文件：{path}",
     "Note: the [b]Default[/] profile is reset to built-in values every time the app launches so new features and tuning come through. System settings (System tab) are preserved. To keep your own tuning across launches, save it as a named profile here.":
         "注意：[b]Default[/] 配置文件会在每次启动时重置为内置值，以便引入新功能和调校。系统设置（系统选项卡）会被保留。要在多次启动间保留您自己的调校，请在此另存为命名配置文件。",

@@ -107,9 +107,12 @@ def _read() -> dict:
 
 def _write(raw: dict) -> None:
     raw["version"] = _version()
+    # MARK: atomic write - avoid corrupt file on power loss / mid-write crash
     try:
         _DATA.mkdir(parents=True, exist_ok=True)
-        PATH.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+        tmp = PATH.with_suffix(PATH.suffix + ".tmp")
+        tmp.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+        tmp.replace(PATH)
     except OSError as e:
         log.warning("Could not save preferences: %s", e)
 
@@ -190,10 +193,14 @@ def reset_file() -> None:
 
 
 def save(s) -> None:
-    raw = _ensure_active(_read(), s)
-    raw["profiles"][raw["active_profile"]] = _profile_fields(s)
-    raw["globals"].update(_global_fields(s))
-    _write(raw)
+    # MARK: never let preferences I/O crash the UI event handler
+    try:
+        raw = _ensure_active(_read(), s)
+        raw["profiles"][raw["active_profile"]] = _profile_fields(s)
+        raw["globals"].update(_global_fields(s))
+        _write(raw)
+    except Exception as e:
+        log.warning("preferences.save failed: %s", e)
 
 
 def reset(s) -> None:

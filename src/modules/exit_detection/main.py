@@ -17,13 +17,20 @@ class ProcessWatcher:
         self._matched = None  # actual process name we locked onto
 
     def _find(self) -> str | None:
-        # Check both name and exe basename: sandboxed/UWP launches can show an
-        # empty/odd name while the exe basename still contains "forza".
-        # Don't match the full exe path - the project folder name itself
-        # contains "Forza", so every python.exe spawned from here would match.
-        for p in psutil.process_iter(["name", "exe"]):
-            name = p.info.get("name") or ""
-            exe_base = os.path.basename(p.info.get("exe") or "")
+        # MARK: per-process try/except - psutil can raise on protected/vanishing procs
+        try:
+            iterator = psutil.process_iter(["name", "exe"])
+        except Exception as e:
+            log.warning("process_iter failed: %s", e)
+            return None
+        for p in iterator:
+            try:
+                name = p.info.get("name") or ""
+                exe_base = os.path.basename(p.info.get("exe") or "")
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, OSError):
+                continue
+            except Exception:
+                continue
             haystack = (name + " " + exe_base).lower()
             if any(needle in haystack for needle in self.needles):
                 return name or exe_base
@@ -36,7 +43,12 @@ class ProcessWatcher:
         if now - self._last_check < self.poll_interval:
             return False
         self._last_check = now
-        found = self._find()
+        # MARK: never let a psutil/OS error kill the main loop
+        try:
+            found = self._find()
+        except Exception as e:
+            log.warning("ProcessWatcher._find crashed: %s", e)
+            return False
         if found and not self._matched:
             self._matched = found
             log.info("Detected game process '%s' - will exit when it closes.", found)

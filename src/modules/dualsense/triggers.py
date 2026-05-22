@@ -8,17 +8,52 @@
 
 import time
 
-# --- Raw mode bytes ---
-M_OFF      = 0x05
-M_RIGID    = 0x01
-M_PULSE    = 0x06
-M_FEEDBACK = 0x21  # MultiplePositionFeedback — per-zone static strength
-M_PULSE_AB = 0x26  # Pulse_AB — per-zone strength + rhythmic kickback
+# --- Raw mode/effect bytes ---
+
+M_OFF            = 0x05  # reset to neutral
+M_VIBRATE        = 0x06  # Simple_Vibration (single zone buzz)
+M_RIGID          = 0x01  # Static_Resistance
+M_RIGID_ZONES    = 0x21  # Feedback: per-zone resistance (10 slots)
+M_VIBRATE_ZONES  = 0x26  # Vibration: per-zone amplitude + frequency
+
+# Hidden firmware effects - unique behavior, may be removed someday
+M_BOW            = 0x22  # resist start..end then snap back
+M_GALLOP         = 0x23  # rhythmic two-foot pulse
+M_MACHINE        = 0x27  # oscillate between two amplitudes
+M_WEAPON_SIMPLE  = 0x02  # Simple_Weapon
+M_WEAPON         = 0x25  # resist start..end with snap release
+
+# Limited leftovers - stricter param ranges, no clear use case
+M_RIGID_LIMITED  = 0x11
+M_WEAPON_LIMITED = 0x12
+
 RAW_MAX = 255
+
+# Below this car speed (km/h) we trust raw wheel rotation instead of slip_ratio
+# (slip_ratio degenerates near zero speed). Above it, slip_ratio is canonical.
+LOW_SPEED_KMH = 5.0
+# Wheel angular speed (rad/s) above which we count as spinning at standstill.
+# ~30 rad/s = ~3 wheel revs/sec, clearly spun-up regardless of tire size.
+BURNOUT_ROT_THRESHOLD = 30.0
 
 
 def _clamp(v, hi=RAW_MAX):
     return max(0, min(hi, round(v)))
+
+
+def _pack_zones(strengths):
+    """Build the 6-byte (active-mask, 3-bit-per-zone strengths) payload shared
+    by rigid_zones and vibrate_zones. Strengths are 0..8; 0 = inactive."""
+    active = packed = 0
+    for i, s in enumerate(strengths[:10]):
+        if s > 0:
+            active |= 1 << i
+            packed |= (s - 1) << (3 * i)
+    return (
+        active & 0xFF, (active >> 8) & 0xFF,
+        packed & 0xFF, (packed >> 8) & 0xFF,
+        (packed >> 16) & 0xFF, (packed >> 24) & 0xFF,
+    )
 
 
 # --- Effect primitives (raw HID frames) -----------------------------------
@@ -29,37 +64,58 @@ def off():
 def rigid(force):
     return (M_RIGID, (0, _clamp(force)))
 
-def vibration(freq, amp):
-    return (M_PULSE, (_clamp(freq), _clamp(amp)))
+def vibrate(freq, amp):
+    return (M_VIBRATE, (_clamp(freq), _clamp(amp)))
 
-def vibration_wall(amp, freq, wall_zones):
-    """Pulse_AB: lower zones buzz at `amp` (1-8), top `wall_zones` stay maxed."""
+def vibrate_zones(amp, freq, wall_zones):
+    """Per-zone vibrate: lower zones buzz at `amp` (1-8), top `wall_zones` stay maxed."""
     a = max(1, min(8, int(amp)))
     w = max(1, min(9, int(wall_zones)))
-    zones = [a] * (10 - w) + [8] * w
-    active = strength = 0
-    for i, s in enumerate(zones):
-        active |= 1 << i
-        strength |= (s - 1) << (3 * i)
-    return (M_PULSE_AB, (
-        active & 0xFF, (active >> 8) & 0xFF,
-        strength & 0xFF, (strength >> 8) & 0xFF, (strength >> 16) & 0xFF, (strength >> 24) & 0xFF,
-        _clamp(freq), 0, 0, 0,
-    ))
+    strengths = [a] * (10 - w) + [8] * w
+    return (M_VIBRATE_ZONES, _pack_zones(strengths) + (0, 0, _clamp(freq), 0))
 
-def feedback(zones):
-    """MultiplePositionFeedback: 10 per-zone strengths (0-8)."""
-    active = force = 0
-    for i, s in enumerate(zones[:10]):
-        s = max(0, min(8, int(s)))
-        if s:
-            active |= 1 << i
-            force |= (s - 1) << (3 * i)
-    return (M_FEEDBACK, (
-        active & 0xFF, (active >> 8) & 0xFF,
-        force & 0xFF, (force >> 8) & 0xFF, (force >> 16) & 0xFF, (force >> 24) & 0xFF,
-        0, 0, 0, 0,
-    ))
+def rigid_zones(zones):
+    """Per-zone resistance: 10 per-zone strengths (0-8). Zero = inactive."""
+    strengths = [max(0, min(8, int(s))) for s in zones[:10]]
+    return (M_RIGID_ZONES, _pack_zones(strengths) + (0, 0, 0, 0))
+
+def weapon(start, end, strength):
+    """Weapon: resist between start..end zones, snap on release. start 2-7, end start+1..8, strength 1-8."""
+    s = max(2, min(7, int(start)))
+    e = max(s + 1, min(8, int(end)))
+    f = max(1, min(8, int(strength)))
+    zones = (1 << s) | (1 << e)
+    return (M_WEAPON, (zones & 0xFF, (zones >> 8) & 0xFF, f - 1))
+
+def bow(start, end, strength, snap_force):
+    """Bow: resist start..end then snap. start 0-8, end start+1..8, both forces 1-8."""
+    s = max(0, min(8, int(start)))
+    e = max(s + 1, min(8, int(end)))
+    f = max(1, min(8, int(strength)))
+    sf = max(1, min(8, int(snap_force)))
+    zones = (1 << s) | (1 << e)
+    pair = ((f - 1) & 0x07) | (((sf - 1) & 0x07) << 3)
+    return (M_BOW, (zones & 0xFF, (zones >> 8) & 0xFF, pair & 0xFF, (pair >> 8) & 0xFF))
+
+def gallop(start, end, first_foot, second_foot, freq):
+    """Galloping: two-foot pulse. start 0-8, end start+1..9, firstFoot 0-6, secondFoot ff+1..7, freq Hz."""
+    s = max(0, min(8, int(start)))
+    e = max(s + 1, min(9, int(end)))
+    ff = max(0, min(6, int(first_foot)))
+    sf = max(ff + 1, min(7, int(second_foot)))
+    zones = (1 << s) | (1 << e)
+    pair = (sf & 0x07) | ((ff & 0x07) << 3)
+    return (M_GALLOP, (zones & 0xFF, (zones >> 8) & 0xFF, pair & 0xFF, _clamp(freq)))
+
+def machine(start, end, amp_a, amp_b, freq, period):
+    """Machine: oscillate between two amplitudes. start 0-8, end start+1..9, amps 0-7, freq Hz, period (0.1s units)."""
+    s = max(0, min(8, int(start)))
+    e = max(s + 1, min(9, int(end)))
+    a = max(0, min(7, int(amp_a)))
+    b = max(0, min(7, int(amp_b)))
+    zones = (1 << s) | (1 << e)
+    pair = (a & 0x07) | ((b & 0x07) << 3)
+    return (M_MACHINE, (zones & 0xFF, (zones >> 8) & 0xFF, pair & 0xFF, _clamp(freq), _clamp(period)))
 
 
 # --- Helpers --------------------------------------------------------------
@@ -111,7 +167,7 @@ def _wall_state(value, engaged, engage_at, release_at):
 def build_wall(zones):
     """Static firmware wall — top `zones` (1-9) maxed. Built once at startup."""
     n = max(1, min(9, int(zones)))
-    return feedback([0] * (10 - n) + [8] * n)
+    return rigid_zones([0] * (10 - n) + [8] * n)
 
 def build_brake_walls(static_at, force, wall_zones):
     """End wall (top `wall_zones`) plus a static wall from brake byte `static_at` down.
@@ -126,7 +182,7 @@ def build_brake_walls(static_at, force, wall_zones):
     zones = [strength if i >= start else 0 for i in range(10)]
     for i in range(10 - n, 10):
         zones[i] = 8
-    return feedback(zones)
+    return rigid_zones(zones)
 
 
 # --- Animations -----------------------------------------------------------
@@ -151,10 +207,10 @@ class TriggerAnimations:
     def shift_burst(self, s, now, pedal, wall_engage_at):
         if now >= self._shift_until:
             return None
-        # Wall kickback when pedal is deep past the wall, else plain buzz.
+        # Wall 0hz for kickback, else normal vibrate.
         if pedal >= (wall_engage_at + RAW_MAX) // 2:
-            return vibration_wall(_amp_to_strength(s.gear_shift_amp), s.gear_shift_freq, s.wall_zones)
-        return vibration(s.gear_shift_freq, s.gear_shift_amp)
+            return vibrate_zones(_amp_to_strength(s.gear_shift_amp), 0, s.wall_zones)
+        return vibrate(s.gear_shift_freq, s.gear_shift_amp)
 
     def rev_buzz(self, t, s, now):
         # Soft limiter: amp grows from rev_limit_ratio toward redline instead of a
@@ -171,34 +227,42 @@ class TriggerAnimations:
             amp = self._rev_amp
         else:
             return None
-        return vibration(s.rev_limit_freq, amp)
+        return vibrate(s.rev_limit_freq, amp)
 
     def wheelspin_buzz(self, t, s, now):
-        # Per-surface R2 buzz when driven wheels spin faster than the road.
+        # R2 buzz when tires lose grip (wheelspin or drift).
+        # At speed: tire_combined_slip catches both longitudinal + lateral slip.
+        # At standstill: slip values degenerate, so trust raw wheel rotation.
         if not s.enable_wheelspin_buzz:
             return None
-        # Need real throttle input above 10 km/h; below that launch-spin dominates.
-        if t["speed"] < 10.0 or t["accel"] < s.accel_deadzone:
+        if t["accel"] < s.accel_deadzone:
             return None
-        # Positive slip only. Negative = locked wheels (handbrake/ABS), not wheelspin.
         wheels = DRIVEN_WHEELS.get(t["drive_train"], ("fl", "fr", "rl", "rr"))
-        slip = max(t[f"tire_slip_ratio_{w}"] for w in wheels)
-        if slip < 1.2:
-            return None
-        # Amp scales with how hard the driven wheels spin past the break point.
-        frac = _scale(slip, 1.2, s.wheelspin_slip_full_at, 1.0)
-        # Surface profile: water halves amp, off-road gets a thumpier buzz.
-        if any(t[f"wheel_in_puddle_depth_{w}"] > 0.0 for w in wheels):
-            freq, amp = 100, max(1, s.wheelspin_amp // 2)
+        # Detection: at standstill slip ratios degenerate, so trust raw wheel
+        # rotation (launch burnouts); at speed use combined slip (spin + drift).
+        if t["speed"] < LOW_SPEED_KMH:
+            if max(abs(t[f"wheel_rotation_speed_{w}"]) for w in wheels) < BURNOUT_ROT_THRESHOLD:
+                return None
+            frac = 1.0
+        else:
+            slip = max(abs(t[f"tire_combined_slip_{w}"]) for w in wheels)
+            if slip < 1.0:
+                return None
+            # Amp scales with how far past the break point the wheels spin.
+            frac = _scale(slip, 1.0, s.wheelspin_slip_full_at, 1.0)
+        # Surface profile: tarmac amp is the reference, others scale off it.
+        amp = s.wheelspin_amp
+        if any(t[f"wheel_in_puddle_{w}"] > 0 for w in wheels):
+            freq, amp = 100, max(1, amp // 2)                # water 0.5x
         else:
             rumble = max(abs(t[f"surface_rumble_{w}"]) for w in wheels)
-            if rumble > 0.30:        # gravel / rocks
-                freq, amp = 20, 15
-            elif rumble > 0.10:      # dirt / loose tarmac
-                freq, amp = 60, 8
-            else:                    # tarmac
-                freq, amp = 100, s.wheelspin_amp
-        return vibration(freq, amp * frac)
+            if rumble > 0.30:                                # gravel / rocks 2x
+                freq, amp = 20, min(255, amp * 2)
+            elif rumble > 0.10:                              # dirt / loose tarmac 1.5x
+                freq, amp = 60, min(255, int(amp * 1.5))
+            else:                                            # tarmac 1x
+                freq, amp = 100, amp
+        return vibrate(freq, amp * frac)
 
     def abs_pulse(self, t, s):
         if not s.enable_abs or not abs_active(t, s):
@@ -210,7 +274,7 @@ class TriggerAnimations:
             _scale(_max_slip(t, "tire_combined_slip"),
                    s.abs_combined_slip_threshold, s.abs_slip_full_at, s.abs_amp),
         )
-        return vibration(s.abs_freq, amp)
+        return vibrate(s.abs_freq, amp)
 
     def _brake_gforce(self, t, s):
         """Extra L2 resistance from real longitudinal deceleration (weight
@@ -255,7 +319,7 @@ class TriggerAnimations:
         rumble = _max_slip(t, "surface_rumble")
         if rumble < s.surface_rumble_min:
             return None
-        return vibration(s.surface_rumble_freq, rumble * s.surface_rumble_gain)
+        return vibrate(s.surface_rumble_freq, rumble * s.surface_rumble_gain)
 
 
 # --- Output smoothing -----------------------------------------------------
@@ -292,10 +356,10 @@ class _TriggerSmoother:
         mode = frame[0]
 
         # A pulse that just ended: fade its amplitude out before the new frame.
-        if self._mode == M_PULSE and mode != M_PULSE:
+        if self._mode == M_VIBRATE and mode != M_VIBRATE:
             self._amp = max(0.0, self._amp - s.amp_release_per_s * dt)
             if self._amp >= 1.0:
-                return vibration(self._freq, self._amp)
+                return vibrate(self._freq, self._amp)
             self._mode = None
 
         if mode == M_RIGID:
@@ -307,20 +371,20 @@ class _TriggerSmoother:
             self._mode = M_RIGID
             return rigid(self._force)
 
-        if mode == M_PULSE:
+        if mode == M_VIBRATE:
             freq, target = frame[1]
-            if self._mode == M_PULSE and freq == self._freq:
+            if self._mode == M_VIBRATE and freq == self._freq:
                 rate = s.amp_attack_per_s if target >= self._amp else s.amp_release_per_s
                 self._amp = _slew(self._amp, target, rate * dt)
             else:
-                if self._mode != M_PULSE:
+                if self._mode != M_VIBRATE:
                     self._amp = 0.0          # fade in from silence on entry
                 self._freq = freq
                 self._amp = _slew(self._amp, target, s.amp_attack_per_s * dt)
-            self._mode = M_PULSE
-            return vibration(self._freq, self._amp)
+            self._mode = M_VIBRATE
+            return vibrate(self._freq, self._amp)
 
-        # M_OFF, firmware wall (M_FEEDBACK), deep gear kick (M_PULSE_AB): snap.
+        # M_OFF, firmware wall (M_RIGID_ZONES), deep gear kick (M_VIBRATE_ZONES): snap.
         self._mode = mode
         self._force = 0.0
         self._amp = 0.0
@@ -442,3 +506,71 @@ class Controller:
 
         # 6. Throttle resistance - default rigid ramp
         return self.anim.throttle_ramp(t, s)
+
+
+# --- Standalone preview ---------------------------------------------------
+# Run: `python -m modules.dualsense.triggers` from src/, or `python triggers.py`.
+# Pick an effect by number; it plays on BOTH triggers for ~3s then resets.
+
+EFFECT_MENU = [
+    ("off                          - neutral",                                       lambda: off()),
+    ("rigid(180)                   - uniform resistance whole travel",               lambda: rigid(180)),
+    ("vibrate(20, 180)           - uniform buzz 20 Hz whole travel",               lambda: vibrate(20, 180)),
+    ("vibrate_zones(6,20,3)       - light buzz lower zones + harder buzz top 3",   lambda: vibrate_zones(6, 20, 3)),
+    ("rigid_zones middle zones        - resist zones 5-7 only (feel a bump mid-pull)", lambda: rigid_zones([0,0,0,0,0,8,8,8,0,0])),
+    ("weapon(4, 7, 8)              - strong resist 4..7 then SUDDENLY free",         lambda: weapon(4, 7, 8)),
+    ("bow(1, 5, 3, 8) SLOW pull    - light pull, then trigger PUSHES BACK hard",     lambda: bow(1, 5, 3, 8)),
+    ("bow(2, 7, 2, 8) FULL pull    - very light pull, max snap-back over wide zone", lambda: bow(2, 7, 2, 8)),
+    ("gallop(2, 8, 1, 4, 2)        - slow horse gallop (2 Hz)",                      lambda: gallop(2, 8, 1, 4, 2)),
+    ("gallop(2, 8, 1, 4, 5)        - faster gallop (5 Hz)",                          lambda: gallop(2, 8, 1, 4, 5)),
+    ("machine(2, 8, 2, 7, 8, 5)    - oscillate weak<->strong every 0.5s",            lambda: machine(2, 8, 2, 7, 8, 5)),
+    ("machine(2, 8, 0, 7, 4, 8)    - oscillate OFF<->strong every 0.8s",             lambda: machine(2, 8, 0, 7, 4, 8)),
+]
+
+def _preview():
+    try:
+        from .main import DualSense
+    except ImportError:
+        import os, sys
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        from modules.dualsense.main import DualSense
+    ds = DualSense(enable_startup_pulse=False)
+    ds.open()
+    print("Waiting for DualSense...")
+    for _ in range(50):
+        if ds.connected:
+            break
+        time.sleep(0.1)
+    if not ds.connected:
+        print("No controller found. Plug in a DualSense and retry.")
+        ds.close()
+        return
+    print("Connected. Effects:")
+    for i, (label, _) in enumerate(EFFECT_MENU):
+        print(f"  {i}: {label}")
+    print("  q: quit")
+    try:
+        while True:
+            choice = input("\nPick effect # (or q): ").strip().lower()
+            if choice in ("q", "quit", "exit"):
+                break
+            if not choice.isdigit() or not (0 <= int(choice) < len(EFFECT_MENU)):
+                print("Invalid.")
+                continue
+            label, factory = EFFECT_MENU[int(choice)]
+            print(f"Playing: {label}  (3s, squeeze either trigger)")
+            frame = factory()
+            ds.set(frame, frame)
+            time.sleep(3.0)
+            ds.set(off(), off())
+    except KeyboardInterrupt:
+        pass
+    finally:
+        ds.set(off(), off())
+        time.sleep(0.1)
+        ds.close()
+        print("Done.")
+
+
+if __name__ == "__main__":
+    _preview()

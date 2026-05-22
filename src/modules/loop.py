@@ -27,9 +27,14 @@ def run(ds, listener, s, stop_event=None, car_profile=None, on_car_switch=None):
         if stop_event is not None and stop_event.is_set():
             break
         now = time.monotonic()
-        if s.exit_on_game_close and watcher.should_exit():
-            log.info("Game process closed — exiting.")
-            break
+        if s.exit_on_game_close:
+            # MARK: defensive - never let watcher errors kill the loop silently
+            try:
+                if watcher.should_exit():
+                    log.info("Game process closed — exiting.")
+                    break
+            except Exception as e:
+                log.warning("game-close watcher error: %s", e)
 
         pkt, addr = listener.recv_latest()
 
@@ -66,11 +71,21 @@ def run(ds, listener, s, stop_event=None, car_profile=None, on_car_switch=None):
         except Exception:
             log.exception("Car profile update failed")
 
-        left, right = controller.update(t, s)
+        # MARK: never let a controller logic bug kill the loop - log & skip frame
+        try:
+            left, right = controller.update(t, s)
+        except Exception as e:
+            log.warning("controller.update failed: %s", e)
+            continue
+
         rgb = dualsense.lightbar.compute(t, s) if s.enable_lightbar else None
 
         if (left, right, rgb) != prev:
-            ds.set(left, right, rgb); prev = (left, right, rgb)
+            try:
+                ds.set(left, right, rgb); prev = (left, right, rgb)
+            except Exception as e:
+                # MARK: HID write can fail on disconnect; reconnect logic will retry
+                log.debug("ds.set failed: %s", e)
 
         if now - last_log >= 1.0:
             last_log = now

@@ -4,7 +4,7 @@
 NAME = "Türkçe"
 
 STRINGS = {
-    # --- tabs / chrome ---
+    # --- chrome / tabs ---
     "Controls": "Kontroller",
     "Profiles": "Profiller",
     "Settings": "Ayarlar",
@@ -16,62 +16,74 @@ STRINGS = {
     "Changelog": "Sürüm Notları",
     "connected": "bağlı",
     "waiting": "bekleniyor",
+    "active": "etkin",
+    "(none)": "(yok)",
     "Backend failed: {error}": "Backend başlatılamadı: {error}",
     "Profile: {name}": "Profil: {name}",
-    "(none)": "(yok)",
-    "active": "etkin",
+    "Active: {name}": "Etkin: {name}",
 
-    # --- controls tab ---
-    "Brake stiffness": "Fren sertliği",
-    "Static brake wall": "Statik fren duvarı",
-    "Handbrake stiffness bonus": "El freni sertlik bonusu",
-    "ABS rumble": "ABS titreşimi",
-    "Shift thump": "Vites darbesi",
-    "Throttle stiffness": "Gaz sertliği",
-    "Redline buzz": "Devir sınırı titreşimi",
+    # --- settings tab sections ---
+    "Pedal dead zones": "Pedal ölü bölgeleri",
+    "Left trigger - Brake force": "Sol tetik - Fren gücü",
+    "Left trigger - Static wall (optional)": "Sol tetik - Statik duvar (opsiyonel)",
+    "Right trigger - Gas force": "Sağ tetik - Gaz gücü",
+    "ABS (anti-lock brake) rumble": "ABS (kilitlenme önleyici fren) titreşimi",
+    "Redline (rev limiter) buzz": "Devir sınırı (redline) titreşimi",
     "Wheelspin buzz": "Patinaj titreşimi",
-
-    # --- settings sections ---
-    "Pedals / deadzones": "Pedallar / ölü bölgeler",
-    "Brake (left trigger)": "Fren (sol tetik)",
-    "Brake static wall": "Fren statik duvar\u0131",
-    "Throttle (right trigger)": "Gaz (sağ tetik)",
-    "Rev limiter": "Devir sınırlayıcı",
     "Gear shift thump": "Vites darbesi",
 
-    # --- settings fields ---
-    "Accel deadzone": "Gaz ölü bölgesi",
-    "Brake deadzone": "Fren ölü bölgesi",
-    "Baseline force": "Taban kuvvet",
-    "Max force": "Maks kuvvet",
-    "Curve": "Eğri",
-    "Static wall at": "Statik duvar konumu",
-    "Static wall force": "Statik duvar gücü",
-    "Handbrake bonus": "El freni bonusu",
-    "Brake threshold": "Fren eşiği",
-    "Min speed (km/h)": "Min hız (km/s)",
-    "Slip ratio threshold": "Kayma oranı eşiği",
-    "Combined slip threshold": "Birleşik kayma eşiği",
-    "Frequency (Hz)": "Frekans (Hz)",
-    "Amplitude": "Genlik",
-    "Trigger at RPM ratio": "RPM oranında tetikle",
-    "Hold (ms)": "Tutma (ms)",
-    "Duration (ms)": "Süre (ms)",
+    # --- settings tab fields ---
+    "Gas trigger dead zone": "Gaz tetiği ölü bölgesi",
+    "Brake trigger dead zone": "Fren tetiği ölü bölgesi",
+    "Resting stiffness": "Bekleme sertliği",
+    "Hard-press stiffness": "Tam basınç sertliği",
+    "Stiffness curve shape": "Sertlik eğrisi şekli",
+    "Handbrake extra stiffness": "El freni ek sertliği",
+    "Wall position on the trigger": "Tetik üzerindeki duvar konumu",
+    "Wall hardness": "Duvar sertliği",
+    "Only when braking harder than": "Yalnızca şundan sert frende",
+    "Only when faster than (km/h)": "Yalnızca şundan hızlıyken (km/s)",
+    "Wheel slip sensitivity": "Tekerlek kayma hassasiyeti",
+    "Tire grip sensitivity": "Lastik tutuş hassasiyeti",
+    "Rumble speed (Hz)": "Titreşim hızı (Hz)",
+    "Rumble strength": "Titreşim gücü",
+    "Fire near redline at": "Devir sınırına yakın tetikle",
+    "Buzz speed (Hz)": "Vızıltı hızı (Hz)",
+    "Buzz strength": "Vızıltı gücü",
+    "Buzz hold time (ms)": "Vızıltı tutma süresi (ms)",
+    "Thump speed (Hz)": "Darbe hızı (Hz)",
+    "Thump strength": "Darbe gücü",
+    "Thump length (ms)": "Darbe süresi (ms)",
 
-    # --- system sections / fields ---
+    # --- settings tab buttons / hints ---
+    "Reset to defaults": "Varsayılanlara sıfırla",
+    "Click again to confirm reset": "Sıfırlamayı onaylamak için tekrar tıklayın",
+    "In Forza HUD: host 127.0.0.1 (try ::1 if it fails).":
+        "Forza HUD'da host 127.0.0.1 olmalı (çalışmazsa ::1 deneyin).",
+    "UDP port {port} is in use. Close the other listener or change the port in the System tab.":
+        "UDP {port} bağlantı noktası kullanımda. Diğer dinleyiciyi kapatın ya da Sistem sekmesinden portu değiştirin.",
+
+    # --- system tab sections / fields ---
     "Telemetry (applies on next launch)": "Telemetri (sonraki açılışta uygulanır)",
     "Startup pulse": "Başlangıç titreşimi",
     "Reconnect": "Yeniden bağlan",
     "Game detection": "Oyun algılama",
     "UDP port": "UDP bağlantı noktası",
-    "Startup pulse force": "Başlangıç titreşim gücü",
-    "Auto-reconnect controller (disable for HidHide)": "Kumandayı otomatik bağla (HidHide için kapatın)",
-    "Reconnect interval (s)": "Yeniden bağlanma aralığı (s)",
-    "Detect game (auto-exit when it closes)": "Oyunu algıla (kapanınca otomatik çık)",
-    "Poll interval (s)": "Yoklama aralığı (s)",
-    "Reset to defaults": "Varsayılanlara sıfırla",
+    "Startup buzz strength": "Başlangıç vızıltı gücü",
+    "Auto-reconnect when controller drops": "Kumanda düşerse otomatik yeniden bağlan",
+    "Reconnect check interval (s)": "Yeniden bağlanma kontrol aralığı (s)",
+    "Auto-exit when the game closes": "Oyun kapanınca otomatik çık",
+    "Game-watch check interval (s)": "Oyun izleme kontrol aralığı (s)",
 
-    # --- updates (top of System tab) ---
+    # --- system tab controller block ---
+    "Controller": "Kumanda",
+    "Lock to controller": "Kumandaya kilitle",
+    "Rescan": "Yeniden tara",
+    "Auto (first found)": "Otomatik (ilk bulunan)",
+    "attached now": "şu an bağlı",
+    "(no serial - not selectable)": "(seri yok - seçilemez)",
+
+    # --- system tab updates block ---
     "Updates": "Güncellemeler",
     "Check for updates at launch": "Açılışta güncellemeleri denetle",
     "When off, ZUV will not prompt for updates on startup. Toggle on and restart the app to check for a new release.":
@@ -85,7 +97,6 @@ STRINGS = {
     "Delete": "Sil",
     "Save": "Kaydet",
     "New profile name": "Yeni profil adı",
-    "Active: {name}": "Etkin: {name}",
     "File: {path}": "Dosya: {path}",
     "Note: the [b]Default[/] profile is reset to built-in values every time the app launches so new features and tuning come through. System settings (System tab) are preserved. To keep your own tuning across launches, save it as a named profile here.":
         "Not: [b]Default[/] profili, yeni özellikler ve ayarlar gelsin diye uygulama her açıldığında yerleşik değerlere sıfırlanır. Sistem ayarları (Sistem sekmesi) korunur. Kendi ayarlarınızı açılışlar arasında saklamak için burada adlandırılmış bir profil olarak kaydedin.",

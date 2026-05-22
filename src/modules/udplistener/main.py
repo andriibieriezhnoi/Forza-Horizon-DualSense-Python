@@ -57,10 +57,10 @@ def parse_packet(p: bytes) -> dict:
         "wheel_on_rumble_strip_fr": i(120),
         "wheel_on_rumble_strip_rl": i(124), 
         "wheel_on_rumble_strip_rr": i(128),
-        "wheel_in_puddle_depth_fl": f(132), 
-        "wheel_in_puddle_depth_fr": f(136),
-        "wheel_in_puddle_depth_rl": f(140), 
-        "wheel_in_puddle_depth_rr": f(144),
+        "wheel_in_puddle_fl": i(132), 
+        "wheel_in_puddle_fr": i(136),
+        "wheel_in_puddle_rl": i(140), 
+        "wheel_in_puddle_rr": i(144),
         "surface_rumble_fl": f(148), 
         "surface_rumble_fr": f(152),
         "surface_rumble_rl": f(156), 
@@ -82,7 +82,10 @@ def parse_packet(p: bytes) -> dict:
         "car_performance_index": i(220),
         "drive_train": i(224), 
         "num_cylinders": i(228),
-        # 232 to 244 are padding / unknown in some versions
+        # FH6 inserted 3 fields here (garbage values on older titles)
+        "car_group": I(232),
+        "smashable_vel_diff": f(236),
+        "smashable_mass": f(240),
         "position_x": f(244), 
         "position_y": f(248), 
         "position_z": f(252),
@@ -140,15 +143,27 @@ class UDPListener:
             log.warning("Dual-stack bind failed, falling back to IPv4: %s", e)
             return None
 
-    def _open_ipv4(self) -> socket.socket:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
-        s.bind((self.host, self.port))
-        log.info("UDP listening on %s:%d (IPv4)", self.host, self.port)
-        return s
+    def _open_ipv4(self) -> socket.socket | None:
+        # MARK: return None on bind failure so __enter__ can raise with context
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
+            except OSError as e:
+                log.warning("SO_RCVBUF rejected: %s", e)
+            s.bind((self.host, self.port))
+            log.info("UDP listening on %s:%d (IPv4)", self.host, self.port)
+            return s
+        except OSError as e:
+            log.warning("IPv4 bind on %s:%d failed: %s", self.host, self.port, e)
+            return None
 
     def __enter__(self):
         self.sock = self._open_dual_stack() or self._open_ipv4()
+        if self.sock is None:
+            raise OSError(
+                f"UDP port {self.port} could not be bound (in use, blocked, or invalid host {self.host!r})"
+            )
         self.sock.settimeout(self.timeout)
         return self
 
@@ -165,6 +180,10 @@ class UDPListener:
         try:
             pkt, addr = self.sock.recvfrom(1500)
         except socket.timeout:
+            return None, None
+        except OSError as e:
+            # MARK: NIC change, sleep/wake, route flap - log once and skip frame
+            log.warning("UDP recvfrom error: %s", e)
             return None, None
         self.sock.setblocking(False)
         try:

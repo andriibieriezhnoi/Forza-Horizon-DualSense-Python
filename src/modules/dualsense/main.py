@@ -204,17 +204,19 @@ class DualSense:
         # the nonblocking read returns empty for `_input_idle_timeout`.
         self._input_idle_timeout = 3.0
         self._last_input_at = 0.0
-        # HidHide-persistent: once True, _disconnect() is a no-op and the I/O
-        # loop never reconnects. Latched on first successful connect when
-        # HidHide is detected; cleared only by force_reconnect() for one
-        # hot-swap cycle (re-latches on the next successful connect).
-        self._persistent = False
+        # Latched mode is derived (see `persistent` property). Active only when
+        # HidHide is cloaking the device AND the user opted out of reconnect.
         # Locked controller serial (empty = first-found). Persists across launches.
         self._lock_serial = controller_lock_serial
 
     @property
     def connected(self) -> bool:
         return self.dev is not None
+
+    @property
+    def persistent(self) -> bool:
+        return (self._ever_connected
+                and (hidhide.is_detected() or not self._enable_reconnect))
 
     def open(self):
         """Start the I/O thread. Never raises if the controller is absent."""
@@ -225,16 +227,11 @@ class DualSense:
         self._thread.start()
 
     def _log_reconnect_mode(self) -> None:
-        if hidhide.is_detected():
-            log.info("HidHide detected - persistent mode will engage after first connect "
-                     "(reconnect setting bypassed; initial connect retries every %.0fs)",
-                     self._reconnect_interval)
-        elif self._enable_reconnect:
-            log.info("Reconnect mode: auto-reconnect every %.0fs after drops",
-                     self._reconnect_interval)
+        if hidhide.is_detected() or not self._enable_reconnect:
+            log.info("Latched mode: handle held silently after connect "
+                     "(HidHide detected or auto-reconnect off).")
         else:
-            log.info("Reconnect mode: disabled — initial connect retries every %.0fs, "
-                     "but drops will not auto-recover (toggle in Settings tab)",
+            log.info("Reconnect mode: auto-reconnect every %.0fs after drops",
                      self._reconnect_interval)
 
     def close(self):
@@ -250,21 +247,19 @@ class DualSense:
         self._wake.set()
 
     def set_reconnect_enabled(self, enabled: bool) -> None:
-        """Live-toggle from the Settings tab. Wakes the I/O thread so a
-        disconnected loop re-checks the retry gate immediately."""
+        """Live-toggle from the Settings tab. Wakes the I/O thread so the
+        retry gate and `persistent` property re-evaluate immediately."""
         new = bool(enabled)
         if new == self._enable_reconnect:
             return
         self._enable_reconnect = new
         self._wake.set()
-        if self._persistent:
-            log.info("Auto-reconnect %s — HidHide persistent mode is active and overrides this.",
-                     "enabled" if new else "disabled")
-        elif new:
-            log.info("Auto-reconnect enabled — will retry every %.0fs after drops.",
+        if new:
+            log.info("Auto-reconnect enabled - drops will retry every %.0fs.",
                      self._reconnect_interval)
         else:
-            log.info("Auto-reconnect disabled — drops will not auto-recover until re-enabled.")
+            log.info("Auto-reconnect disabled%s.",
+                     " (HidHide detected - device will latch after connect)" if hidhide.is_detected() else "")
 
     def set_reconnect_interval(self, interval_s: float) -> None:
         new = float(interval_s)
@@ -281,9 +276,8 @@ class DualSense:
 
     def force_reconnect(self) -> None:
         """Drop the current handle and reopen the I/O loop's reconnect gate so
-        the picker's Apply can hot-swap regardless of enable_reconnect. Also
-        unlatches HidHide persistent mode for one cycle (re-latches on next connect)."""
-        self._persistent = False
+        the picker's Apply can hot-swap regardless of enable_reconnect.
+        Resetting `_ever_connected` also clears persistent for one cycle."""
         self._ever_connected = False
         self._last_attempt = -1e9
         self._disconnect("user-initiated switch")
@@ -347,12 +341,11 @@ class DualSense:
         self._open_hinted = self._waiting_hinted = False
         self._ever_connected = True
         self._last_input_at = time.monotonic()
-        if hidhide.is_detected() and not self._persistent:
-            self._persistent = True
-            log.info("DualSense connected (%s) - persistent mode latched (HidHide present)",
-                     "BT" if self.lay["bt"] else "USB")
+        bus = "BT" if self.lay["bt"] else "USB"
+        if self.persistent:
+            log.info("DualSense connected (%s) - latched", bus)
         else:
-            log.info("DualSense connected (%s)", "BT" if self.lay["bt"] else "USB")
+            log.info("DualSense connected (%s)", bus)
 
         if self._enable_startup_pulse:
             pulse = (M_RIGID, (0, self._pulse_force))
@@ -364,8 +357,9 @@ class DualSense:
         return True
 
     def _disconnect(self, reason: str = ""):
-        # HidHide-persistent: keep the handle, ignore transient errors forever.
-        if self._persistent and self._running:
+        # Latched: keep the handle, ignore transient errors. HidHide cloaks
+        # input but the OS link stays valid.
+        if self.persistent and self._running:
             return
         was_connected = self.dev is not None
         if was_connected:
@@ -405,11 +399,9 @@ class DualSense:
                 self._wake.clear()
                 continue
 
-            # HidHide-persistent mode: once we've connected and HidHide is on
-            # the system, never tear the handle down — HidHide can cloak the
-            # device mid-session and the OS link stays put. Treat read/write
-            # hiccups as transient and skip the idle-input watchdog.
-            persistent = self._persistent
+            # Latched (HidHide + reconnect off): handle stays valid; skip the
+            # watchdog and swallow transient read/write errors.
+            persistent = self.persistent
 
             # --- Connected: drain one input report for the liveness watchdog.
             # timeout_ms=0 forces a truly nonblocking read — set_nonblocking()
