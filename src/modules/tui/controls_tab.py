@@ -22,6 +22,7 @@ TRIGGER_CONTROLS = [
         ("enable_abs",               "ABS rumble"),
         ("enable_brake_static_wall", "Static brake wall"),
         ("enable_brake_resistance",  "Brake stiffness"),
+        ("enable_brake_gforce",      "Brake G-force"),
         ("enable_handbrake_bonus",   "Handbrake stiffness bonus"),
     ]),
     ("R2", [

@@ -139,6 +139,7 @@ class TriggerAnimations:
         self._shift_until = 0.0
         self._rev_until = 0.0
         self._rev_amp = 0.0
+        self._decel_ema = 0.0
 
     def arm_shift(self, t, s, now):
         gear = t["gear"]
@@ -211,6 +212,20 @@ class TriggerAnimations:
         )
         return vibration(s.abs_freq, amp)
 
+    def _brake_gforce(self, t, s):
+        """Extra L2 resistance from real longitudinal deceleration (weight
+        transfer / brake bite). accel_z is forward-positive, so braking is
+        negative; we use the decelerating magnitude in g. EMA-smoothed because
+        the accelerometer is noisy."""
+        if not s.enable_brake_gforce:
+            return 0.0
+        decel_g = max(0.0, -t["accel_z"]) / 9.81
+        self._decel_ema += s.brake_gforce_smoothing * (decel_g - self._decel_ema)
+        if t["brake"] < s.brake_deadzone or self._decel_ema < s.brake_gforce_deadzone_g:
+            return 0.0
+        over = self._decel_ema - s.brake_gforce_deadzone_g
+        return min(float(s.brake_gforce_max_force), over * s.brake_gforce_per_g)
+
     def brake_resistance(self, t, s):
         handbrake = s.enable_handbrake_bonus and t["handbrake"]
         if not s.enable_brake_resistance:
@@ -219,6 +234,7 @@ class TriggerAnimations:
                       s.brake_max_force, s.brake_curve, s.brake_wall_engage_at)
         force = _wall_approach(t["brake"], force, s.brake_wall_force,
                                s.brake_wall_release_at, s.brake_wall_engage_at)
+        force += self._brake_gforce(t, s)
         if handbrake:
             force += s.handbrake_bonus
         return rigid(force)

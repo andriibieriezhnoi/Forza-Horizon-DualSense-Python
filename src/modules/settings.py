@@ -52,6 +52,16 @@ class Settings:
     brake_static_wall_at: int = 128           # brake byte where the static wall sits
     brake_static_wall_force: int = 255        # how hard the static wall resists (0-255)
 
+    # G-force brake feedback: firm the brake trigger by how hard the car actually
+    # decelerates (longitudinal accel_z), on top of the pedal curve. Conveys weight
+    # transfer / brake bite. Only active while braking; ABS and the wall take
+    # priority, so this lives in the mid-to-hard braking range.
+    enable_brake_gforce: bool = True
+    brake_gforce_per_g: float = 45.0          # rigid force added per g of deceleration
+    brake_gforce_max_force: int = 60          # cap on the G contribution (0-255)
+    brake_gforce_deadzone_g: float = 0.15     # ignore decel below this (g)
+    brake_gforce_smoothing: float = 0.25      # EMA factor on the decel signal (0..1; lower = smoother)
+
     # Handbrake bonus: flat extra force when handbrake is engaged.
     enable_handbrake_bonus: bool = True
     handbrake_bonus: int = 60
