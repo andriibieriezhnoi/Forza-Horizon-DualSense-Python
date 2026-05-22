@@ -22,7 +22,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with: { fetch-depth: 0 }
 
       - name: Parse trigger
@@ -56,7 +56,7 @@ jobs:
           git tag -f "$TAG"
           git push origin "refs/tags/$TAG" --force
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v8.1.0   # exact pin: setup-uv dropped floating major tags
         if: steps.parse.outputs.tag
 
       - name: Build bundle
@@ -67,7 +67,7 @@ jobs:
             --update-repo "${{ github.repository }}"
           cp win_start.bat linux_start.sh release/
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         if: steps.parse.outputs.tag
         with:
           tag_name: ${{ steps.parse.outputs.tag }}
